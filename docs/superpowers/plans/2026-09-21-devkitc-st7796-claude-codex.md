@@ -64,7 +64,7 @@
 - [ ] **Step 1: Create the daemon venv with test deps**
 
 ```powershell
-cd C:\Users\tinvt\OneDrive\Documents\GitHub\Clawdmeter
+cd <your Clawdmeter checkout>
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -q -r daemon\requirements-windows.txt pytest
 .venv\Scripts\python.exe -m pytest daemon/tests -q -x
