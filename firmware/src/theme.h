@@ -12,3 +12,6 @@
 #define THEME_AMBER    lv_color_hex(0xd97757)
 #define THEME_RED      lv_color_hex(0xc0392b)
 #define THEME_BAR_BG   lv_color_hex(0x2a2a28)   // unfilled bar track
+#define THEME_CODEX    lv_color_hex(0x5dcaa5)   // Codex column accent (landscape dual view)
+#define THEME_STALE    lv_color_hex(0xc9a13a)   // stale-data badge / link-down dot
+#define THEME_ON_STALE lv_color_hex(0x141413)   // text on THEME_STALE

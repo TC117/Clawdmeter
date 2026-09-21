@@ -6,6 +6,7 @@
 #include "clawd_still.h"
 #include "icons.h"
 #include "hal/board_caps.h"
+#include "ui_dual.h"
 
 // Custom fonts (scaled for 314 PPI, ~1.9x from original 165 PPI)
 LV_FONT_DECLARE(font_tiempos_56);
@@ -26,6 +27,7 @@ LV_FONT_DECLARE(font_mono_18);
 // breakpoint — never editing the screen-builder functions below.
 struct Layout {
     int16_t scr_w, scr_h;
+    bool    landscape;               // W > H → two-column Claude/Codex view (ui_dual.cpp)
     int16_t margin;
     int16_t title_y;
     int16_t content_y;
@@ -75,6 +77,7 @@ static Layout L = {};
 static void compute_layout(const BoardCaps& c) {
     L.scr_w = c.width;
     L.scr_h = c.height;
+    L.landscape = c.width > c.height;
     L.margin = 20;
     L.title_y = 30;
 
@@ -103,7 +106,37 @@ static void compute_layout(const BoardCaps& c) {
     L.pair_y3 = 160;
     L.idle_px = 160;
 
-    if (c.height >= 460) {
+    if (L.landscape) {
+        // Landscape — tuned for 480x320 (DevKitC + ST7796). The live view is
+        // the two-column Claude/Codex layout in ui_dual.cpp; these values place
+        // the shared chrome (clock, pairing hint, idle creature, status line).
+        L.margin = 12;
+        L.title_y = 4;
+        L.content_y = 56;
+        L.usage_panel_h = 0;       // unused: ui_dual.cpp owns the panels
+        L.usage_panel_gap = 0;
+        L.usage_bar_y = 0;
+        L.usage_reset_y = 0;
+        L.title_font = &font_tiempos_34;
+        L.anim_font = &font_mono_18;
+        L.anim_y = -12;
+        L.small_icons = true;
+        L.title_nudge = 0;
+        L.logo_y = 6;
+        L.batt_y = 10;
+        L.batt_w = ICON_BATTERY_SMALL_W;
+        L.pair_y1 = 40;
+        L.pair_y2 = 100;
+        L.pair_y3 = 130;
+        L.idle_px = 120;
+        L.bt_info_panel_h = 90;
+        L.bt_reset_zone_h = 60;
+        L.bt_title_font    = &font_tiempos_34;
+        L.bt_status_font   = &font_styrene_28;
+        L.bt_device_font   = &font_styrene_20;
+        L.bt_credit_1_font = &font_styrene_16;
+        L.bt_credit_2_font = &font_styrene_14;
+    } else if (c.height >= 460) {
         // Large layout — tuned for 480x480 (AMOLED-2.16).
         L.content_y = 100;
         L.usage_panel_h = 150;
@@ -498,36 +531,40 @@ static void init_usage_screen(lv_obj_t* scr) {
     lv_obj_clear_flag(usage_group, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(usage_group, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    panel_session = make_usage_panel(usage_group, L.content_y, "Current",
-                     &lbl_session_pct, &lbl_session_label,
-                     &bar_session, &lbl_session_reset);
+    if (L.landscape) {
+        ui_dual_build(usage_container, usage_group);
+    } else {
+        panel_session = make_usage_panel(usage_group, L.content_y, "Current",
+                         &lbl_session_pct, &lbl_session_label,
+                         &bar_session, &lbl_session_reset);
 
-    // Enterprise-only overlays inside panel_session — hidden until enterprise data arrives
-    lbl_session_pct_sym = lv_label_create(panel_session);
-    lv_label_set_text(lbl_session_pct_sym, "%");
-    lv_obj_set_style_text_font(lbl_session_pct_sym, L.reset_font, 0);
-    lv_obj_set_style_text_color(lbl_session_pct_sym, COL_TEXT, 0);
-    lv_obj_add_flag(lbl_session_pct_sym, LV_OBJ_FLAG_HIDDEN);
+        // Enterprise-only overlays inside panel_session — hidden until enterprise data arrives
+        lbl_session_pct_sym = lv_label_create(panel_session);
+        lv_label_set_text(lbl_session_pct_sym, "%");
+        lv_obj_set_style_text_font(lbl_session_pct_sym, L.reset_font, 0);
+        lv_obj_set_style_text_color(lbl_session_pct_sym, COL_TEXT, 0);
+        lv_obj_add_flag(lbl_session_pct_sym, LV_OBJ_FLAG_HIDDEN);
 
-    lbl_spending_desc = lv_label_create(panel_session);
-    lv_label_set_text(lbl_spending_desc, "of your monthly budget");
-    lv_obj_set_style_text_font(lbl_spending_desc, L.reset_font, 0);
-    lv_obj_set_style_text_color(lbl_spending_desc, COL_DIM, 0);
-    lv_obj_set_pos(lbl_spending_desc, 0, L.usage_reset_y);
-    lv_obj_add_flag(lbl_spending_desc, LV_OBJ_FLAG_HIDDEN);
+        lbl_spending_desc = lv_label_create(panel_session);
+        lv_label_set_text(lbl_spending_desc, "of your monthly budget");
+        lv_obj_set_style_text_font(lbl_spending_desc, L.reset_font, 0);
+        lv_obj_set_style_text_color(lbl_spending_desc, COL_DIM, 0);
+        lv_obj_set_pos(lbl_spending_desc, 0, L.usage_reset_y);
+        lv_obj_add_flag(lbl_spending_desc, LV_OBJ_FLAG_HIDDEN);
 
-    lbl_spending_status = lv_label_create(panel_session);
-    lv_label_set_text(lbl_spending_status, "");
-    lv_obj_set_style_text_font(lbl_spending_status, L.pace_font, 0);
-    lv_obj_set_pos(lbl_spending_status, 0, L.usage_reset_y + 20);
-    lv_obj_add_flag(lbl_spending_status, LV_OBJ_FLAG_HIDDEN);
+        lbl_spending_status = lv_label_create(panel_session);
+        lv_label_set_text(lbl_spending_status, "");
+        lv_obj_set_style_text_font(lbl_spending_status, L.pace_font, 0);
+        lv_obj_set_pos(lbl_spending_status, 0, L.usage_reset_y + 20);
+        lv_obj_add_flag(lbl_spending_status, LV_OBJ_FLAG_HIDDEN);
 
-    panel_weekly = make_usage_panel(usage_group,
-                     L.content_y + L.usage_panel_h + L.usage_panel_gap, "Weekly",
-                     &lbl_weekly_pct, &lbl_weekly_label,
-                     &bar_weekly, &lbl_weekly_reset);
-    // Recolor enabled so enterprise period box can color pace and reset separately
-    lv_label_set_recolor(lbl_weekly_reset, true);
+        panel_weekly = make_usage_panel(usage_group,
+                         L.content_y + L.usage_panel_h + L.usage_panel_gap, "Weekly",
+                         &lbl_weekly_pct, &lbl_weekly_label,
+                         &bar_weekly, &lbl_weekly_reset);
+        // Recolor enabled so enterprise period box can color pace and reset separately
+        lv_label_set_recolor(lbl_weekly_reset, true);
+    }
 
     build_pair_group(usage_container);
     build_idle_group(usage_container);
@@ -565,7 +602,14 @@ void ui_init(void) {
 
     // Corner mascot in the old logo slot. The still Clawd is shorter than the
     // 80/40 px slot the spark logo used; center it vertically in that slot.
-    {
+    if (L.landscape) {
+        // Landscape header: static avocado in the corner-mascot slot. logo_img
+        // is already hidden on the splash by ui_show_screen().
+        init_icon_dsc_rgb565a8(&logo_dsc, ICON_AVOCADO_W, ICON_AVOCADO_H, icon_avocado_data);
+        logo_img = lv_image_create(scr);
+        lv_image_set_src(logo_img, &logo_dsc);
+        lv_obj_set_pos(logo_img, 14, 6);
+    } else {
         const int slot  = L.small_icons ? LOGO_SMALL_HEIGHT : LOGO_HEIGHT;
         const int art_h = L.small_icons ? CLAWD_STILL_SMALL_H : CLAWD_STILL_H;
         const int top   = L.logo_y + (slot - art_h) / 2;
@@ -590,6 +634,11 @@ void ui_init(void) {
     }
 }
 
+// Device-local wall-clock epoch at lv_tick `now`, or 0 before the daemon sent a clock.
+static long current_epoch(uint32_t now) {
+    return clock_base_epoch > 0 ? clock_base_epoch + (long)((now - clock_base_ms) / 1000) : 0;
+}
+
 void ui_update(const UsageData* data) {
     if (!data->valid) return;
     data_ok = data->ok;
@@ -605,6 +654,11 @@ void ui_update(const UsageData* data) {
         clock_base_epoch = 0;
         clock_last_min = -1;
         lv_label_set_text(lbl_title, "Usage");
+    }
+
+    if (L.landscape) {
+        ui_dual_update(data, current_epoch(last_data_ms));
+        return;
     }
 
     int s_pct = (int)(data->session_pct + 0.5f);
@@ -696,6 +750,15 @@ static void update_view_state(void) {
     lv_obj_add_flag(usage_group, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(v == 0 ? pair_group : v == 1 ? idle_group : usage_group,
                       LV_OBJ_FLAG_HIDDEN);
+    if (L.landscape) {
+        // The two columns fill the strip the status line would use, so it only
+        // shows on the pairing / idle views here.
+        if (lbl_anim) {
+            if (v == 2) lv_obj_add_flag(lbl_anim, LV_OBJ_FLAG_HIDDEN);
+            else        lv_obj_clear_flag(lbl_anim, LV_OBJ_FLAG_HIDDEN);
+        }
+        ui_dual_set_live(v == 2);
+    }
 }
 
 void ui_tick_anim(void) {
@@ -708,7 +771,7 @@ void ui_tick_anim(void) {
     // Title clock: once the daemon has sent wall-clock time, replace "Usage" with
     // the live time, advanced locally so it ticks every minute between payloads.
     if (clock_base_epoch > 0) {
-        time_t cur = (time_t)(clock_base_epoch + (now - clock_base_ms) / 1000);
+        time_t cur = (time_t)current_epoch(now);
         struct tm tmv;
         gmtime_r(&cur, &tmv);   // epoch is already local wall-clock → gmtime keeps it as-is
         if (tmv.tm_min != clock_last_min) {   // only rewrite the title when the minute changes
@@ -725,6 +788,8 @@ void ui_tick_anim(void) {
             lv_label_set_text(lbl_title, tbuf);
         }
     }
+
+    if (L.landscape) ui_dual_tick(current_epoch(now), now - last_data_ms);
 
     if (now - anim_msg_start >= ANIM_MSG_MS) {
         anim_msg_idx = (anim_msg_idx + 1) % ANIM_MSG_COUNT;
