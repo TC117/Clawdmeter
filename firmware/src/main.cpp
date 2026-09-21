@@ -119,6 +119,12 @@ static bool parse_json(const char* json, UsageData* out) {
     strlcpy(out->reset_date, doc["rd"] | "", sizeof(out->reset_date));
     out->clock_epoch = doc["t"] | 0L;
     out->clock_fmt = doc["tf"] | 24;
+    out->codex_ok = doc["cok"] | false;
+    out->codex_session_pct = doc["cs"] | -1.0f;
+    out->codex_session_reset_mins = doc["csr"] | -1;
+    out->codex_weekly_pct = doc["cw"] | -1.0f;
+    out->codex_weekly_reset_mins = doc["cwr"] | -1;
+    out->codex_epoch = doc["ct"] | 0L;
     out->ok = doc["ok"] | false;
     out->valid = true;
     return true;
