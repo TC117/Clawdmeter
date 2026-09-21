@@ -157,6 +157,8 @@ powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 This creates a venv, installs `bleak`/`httpx`/`pystray`/`Pillow` from the in-repo requirements (no internet downloads), registers a per-user login-autostart entry (`HKCU\…\Run`, no admin needed), and launches the tray app headlessly (no console window).
 
+> **`devkitc_st7796` (landscape Claude | Codex view):** the Codex column comes only from this Windows daemon, and the clock and per-column update badges need `clock=auto` in `%LOCALAPPDATA%\Clawdmeter\config`. Write it without a BOM (Windows PowerShell 5.1's `Set-Content`/`Out-File -Encoding utf8` add one), e.g. `` [IO.File]::WriteAllText("$env:LOCALAPPDATA\Clawdmeter\config", "clock=auto`r`n") `` — this replaces the file, so put any other options (`chime=on`) in the same string — then restart the tray app.
+
 ### Run manually instead (optional)
 
 ```powershell

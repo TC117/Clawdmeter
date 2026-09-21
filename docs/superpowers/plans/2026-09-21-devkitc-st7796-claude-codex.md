@@ -1518,14 +1518,14 @@ Expected in the log: `{"ready":true}`, `Touch FT6336 vendor=0x..`, `Dashboard re
 - [ ] **Step 6: Screenshot the normal state and review**
 
 Run: `& "$env:TEMP\cm-esptool\Scripts\python.exe" "$env:TEMP\cm-esptool\qa_shot.py" COM6 "$env:TEMP\cm-esptool\qa_normal.png"` then Read the PNG.
-Expected: matches the mockup — clock `19:42` centred, avocado top-left, green dot top-right, Claude 78% / 35%, Codex 52% / 61%, badges `19:42` (Claude) and `19:41` (Codex), nothing clipped. Fix spacing in `ui_dual.cpp` constants if anything overlaps; rebuild, reflash, recapture.
+Expected: matches the mockup — clock `13:42` centred, avocado top-left, green dot top-right, Claude 78% / 35%, Codex 52% / 61%, badges `13:42` (Claude) and `13:41` (Codex), nothing clipped. Fix spacing in `ui_dual.cpp` constants if anything overlaps; rebuild, reflash, recapture.
 
 - [ ] **Step 7: Worst case** — change `QA_DEMO_JSON` to `{"s":100,"sr":59,"w":100,"wr":10019,"ok":true,"t":1789998120,"tf":24,"cok":false}`, reflash, capture `qa_worst.png`.
 Expected: "100%" does not collide with "Weekly"; "Resets in 6d 22h" fits; Codex shows `--%`, "No data", badge `--:--`.
 If "100%" collides: reduce `font_styrene_48` → `font_styrene_28` for `sec.pct` only if no spacing tweak fixes it (tell the user; it changes the look).
 
 - [ ] **Step 8: Stale badge** — `QA_DEMO_JSON` with `"ct":1789990000` (≈2 h old) and `cok:true`, reflash, capture `qa_stale.png`.
-Expected: Codex badge amber with dark text `17:26`.
+Expected: Codex badge amber with dark text `11:26`.
 
 - [ ] **Step 9: Touch check** — ask the user to tap the screen; expected: Usage ↔ Splash toggles each tap; splash shows centred Clawd with black side bars; avocado hidden on the splash.
 
@@ -1555,7 +1555,10 @@ git commit -m "devkitc_st7796: hardware bring-up fixes"
 ```powershell
 $cfg = "$env:LOCALAPPDATA\Clawdmeter\config"
 New-Item -ItemType Directory -Force (Split-Path $cfg) | Out-Null
-if (-not (Test-Path $cfg) -or -not (Select-String -Path $cfg -Pattern '^\s*clock\s*=' -Quiet)) { Add-Content -Encoding utf8 $cfg "clock=auto" }
+# BOM-free: Windows PowerShell 5.1's Add-Content/Set-Content -Encoding utf8 prepend a BOM.
+# Keeps any existing lines (e.g. chime=on); leaves the file alone if clock= is already set.
+$old = if (Test-Path $cfg) { @(Get-Content $cfg) } else { @() }
+if (-not ($old -match '^\s*clock\s*=')) { [IO.File]::WriteAllText($cfg, ((@($old) + "clock=auto") -join "`r`n") + "`r`n") }
 Get-Content $cfg
 ```
 Expected: file contains `clock=auto`.
