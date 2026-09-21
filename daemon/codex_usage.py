@@ -227,6 +227,7 @@ def add_codex_fields(payload, now=None):
     now = time.time() if now is None else now
     try:
         reading = pick_reading(newest_logged(), _live.reading if _live else None, now)
+        fields = codex_fields(reading, now)
     except Exception:
-        reading = None
-    payload.update(codex_fields(reading, now))
+        fields = {"cok": False}
+    payload.update(fields)

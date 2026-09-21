@@ -132,3 +132,13 @@ def test_add_codex_fields_survives_reader_errors(monkeypatch):
     payload = {}
     cu.add_codex_fields(payload, now=NOW)
     assert payload == {"cok": False}
+
+
+def test_add_codex_fields_survives_malformed_reading(monkeypatch):
+    def malformed(*_a, **_k):
+        return (NOW - 60, {"primary": "garbage", "secondary": {"used_percent": "n/a", "window_minutes": 10080, "resets_at": NOW + 600}})
+    monkeypatch.setattr(cu, "newest_logged", malformed)
+    monkeypatch.setattr(cu, "_live", None)
+    payload = {}
+    cu.add_codex_fields(payload, now=NOW)
+    assert payload == {"cok": False}
