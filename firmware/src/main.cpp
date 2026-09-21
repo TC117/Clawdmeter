@@ -325,7 +325,7 @@ void loop() {
                 // Screen on/off key: a press wakes a dark panel, otherwise turns
                 // it off. No HID key. The 250 ms lockout stops contact bounce
                 // from turning the screen straight back on.
-                static uint32_t toggled_ms = 0;
+                static uint32_t toggled_ms = (uint32_t)0 - 1000;  // first press never rate-limited
                 if (primary_now && millis() - toggled_ms > 250) {
                     toggled_ms = millis();
                     if (!idle_consume_wake_press()) idle_sleep_now();

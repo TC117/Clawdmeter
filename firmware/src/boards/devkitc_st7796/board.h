@@ -35,7 +35,7 @@
 #define FT6336_ADDR          0x38
 
 // ---- Buttons ----
-#define BTN_BOOT_GPIO        0          // BOOT — primary, Space (PTT)
+#define BTN_BOOT_GPIO        0          // BOOT — primary, screen off/on (see BOARD_PRIMARY_TOGGLES_SCREEN)
 
 // ---- Capability flags ----
 #define BOARD_HAS_SECONDARY_BUTTON 0

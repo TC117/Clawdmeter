@@ -4,7 +4,9 @@
 // Physical button abstraction. Boards report up to two screen-independent
 // buttons:
 //   PRIMARY   — left button on this project's boards (BOOT / GPIO 0).
-//               Drives the Claude Code voice-mode PTT (HID Space).
+//               Drives the Claude Code voice-mode PTT (HID Space), unless
+//               BoardCaps.primary_toggles_screen is set — then it is a
+//               screen off/on key instead.
 //   SECONDARY — right button on boards that have one (e.g. GPIO 18 on
 //               AMOLED-2.16). Drives mode-toggle (HID Shift+Tab). Boards
 //               without it report held=false forever and shared code
