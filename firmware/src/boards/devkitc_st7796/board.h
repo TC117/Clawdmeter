@@ -44,3 +44,4 @@
 #define BOARD_HAS_BATTERY          0
 #define BOARD_HAS_IO_EXPANDER      0
 #define BOARD_HAS_SOUND            0
+#define BOARD_PRIMARY_TOGGLES_SCREEN 1  // BOOT = screen off/on (no HID Space)

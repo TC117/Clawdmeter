@@ -16,6 +16,11 @@ void idle_set_awake_brightness(uint8_t level);
 // activity, so callers don't need a separate idle_note_activity() call.
 bool idle_consume_wake_press(void);
 
+// Fade the panel out now (a user "screen off" key). Unlike the idle timeout,
+// this sleep also holds while USB power is present; any wake through
+// idle_consume_wake_press() (button or touch) or idle_note_activity() ends it.
+void idle_sleep_now(void);
+
 // Touch should NOT count as activity (avoids accidental wakes from pets,
 // sleeves, etc.). Callers use this to silently drop touch events while the
 // panel is dark.

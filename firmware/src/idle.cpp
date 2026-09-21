@@ -18,6 +18,7 @@ static uint32_t fade_last_step_ms = 0;
 static uint8_t  fade_from = DISPLAY_DEFAULT_BRIGHTNESS;
 static uint8_t  fade_to   = 0;
 static uint8_t  awake_brightness = DISPLAY_DEFAULT_BRIGHTNESS;  // user-set "full" level (brightness.cpp)
+static bool     user_sleep = false;  // idle_sleep_now(): stay dark even on USB power until a wake
 
 static void apply_brightness(uint8_t b) {
     display_hal_set_brightness(b);
@@ -49,6 +50,7 @@ void idle_note_activity(void) {
     if (state == STATE_AWAKE) return;
     // Asleep/fading-out shouldn't reach here in normal flow (callers gate via
     // idle_consume_wake_press first), but if it does: trigger a wake.
+    user_sleep = false;
     begin_fade(awake_brightness, last_activity_ms);
     state = STATE_FADING_IN;
 }
@@ -57,6 +59,7 @@ bool idle_consume_wake_press(void) {
     if (state == STATE_ASLEEP || state == STATE_FADING_OUT) {
         uint32_t now = millis();
         last_activity_ms = now;
+        user_sleep = false;
         begin_fade(awake_brightness, now);
         state = STATE_FADING_IN;
         return true;
@@ -71,6 +74,13 @@ bool idle_consume_wake_press(void) {
     return false;
 }
 
+void idle_sleep_now(void) {
+    user_sleep = true;
+    if (state == STATE_ASLEEP || state == STATE_FADING_OUT) return;
+    begin_fade(0, millis());
+    state = STATE_FADING_OUT;
+}
+
 bool idle_is_asleep(void) {
     return state == STATE_ASLEEP || state == STATE_FADING_OUT;
 }
@@ -79,8 +89,9 @@ void idle_tick(void) {
     uint32_t now = millis();
 
     // While on USB power (if configured), don't sleep — and wake from sleep
-    // when power comes back. Treats USB-in as continuous activity.
-    if (!IDLE_SLEEP_WHEN_CHARGING && power_hal_is_vbus_in()) {
+    // when power comes back. Treats USB-in as continuous activity. A sleep the
+    // user asked for (idle_sleep_now) is exempt, or USB would undo it at once.
+    if (!IDLE_SLEEP_WHEN_CHARGING && power_hal_is_vbus_in() && !user_sleep) {
         last_activity_ms = now;
         if (state == STATE_ASLEEP || state == STATE_FADING_OUT) {
             begin_fade(awake_brightness, now);

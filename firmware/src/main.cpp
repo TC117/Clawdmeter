@@ -307,7 +307,8 @@ void loop() {
     if (!idle_is_asleep()) display_hal_tick();
 
     // ---- Physical buttons ----
-    //   PRIMARY   → HID Space  (Claude Code voice-mode PTT)
+    //   PRIMARY   → HID Space  (Claude Code voice-mode PTT), or screen off/on
+    //               on boards with caps.primary_toggles_screen
     //   SECONDARY → HID Shift+Tab  (mode toggle; only if the board has one)
     //   PWR       → on splash: cycle animations; on usage: cycle brightness;
     //               hold ~3s + release: pairing mode
@@ -320,7 +321,16 @@ void loop() {
         static bool primary_wake_swallowed = false;
         bool primary_now = input_hal_is_held(INPUT_BTN_PRIMARY);
         if (primary_now != primary_was) {
-            if (primary_now) {
+            if (board_caps().primary_toggles_screen) {
+                // Screen on/off key: a press wakes a dark panel, otherwise turns
+                // it off. No HID key. The 250 ms lockout stops contact bounce
+                // from turning the screen straight back on.
+                static uint32_t toggled_ms = 0;
+                if (primary_now && millis() - toggled_ms > 250) {
+                    toggled_ms = millis();
+                    if (!idle_consume_wake_press()) idle_sleep_now();
+                }
+            } else if (primary_now) {
                 if (idle_consume_wake_press()) primary_wake_swallowed = true;
                 else                            ble_keyboard_press(0x2C, 0);  // HID Space, no mods
             } else {
