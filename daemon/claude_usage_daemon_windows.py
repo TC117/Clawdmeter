@@ -26,6 +26,11 @@ from bleak import BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
+try:
+    from daemon.codex_usage import add_codex_fields, start_live as start_codex_live
+except ImportError:  # run as a script: python daemon\claude_usage_daemon_windows.py
+    from codex_usage import add_codex_fields, start_live as start_codex_live
+
 DEVICE_NAME = "Clawdmeter"
 SERVICE_UUID = "4c41555a-4465-7669-6365-000000000001"
 RX_CHAR_UUID = "4c41555a-4465-7669-6365-000000000002"
@@ -643,6 +648,7 @@ async def connect_and_run(device, stop_event: asyncio.Event, tray_state=None) ->
                         if tray_state:
                             tray_state.set_error("token expired — run claude login")
                     if payload is not None:
+                        add_codex_fields(payload)  # Codex column (cok/cs/csr/cw/cwr/ct)
                         if await session.write_payload(payload):
                             last_poll = time.time()
                             used_successfully = True
@@ -700,6 +706,8 @@ def _next_backoff(current: int, cap: int) -> int:
 async def main(tray_state=None) -> None:
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
+
+    start_codex_live()  # background `codex app-server` reader; no-op without the Codex CLI
 
     # Populate the shared state object so the tray can route Quit through
     # loop.call_soon_threadsafe (RESEARCH Pitfall 2).  Additive — the existing
