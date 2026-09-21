@@ -25,6 +25,7 @@ struct Column  {
     lv_obj_t* badge;
     Section   sec[2];          // 0 = 5h, 1 = Weekly
     long      stamp;           // epoch shown in the badge, 0 = none
+    bool      has_data;        // real numbers applied at least once; only then can it go stale
     bool      stale_shown;
 };
 enum { CLAUDE = 0, CODEX = 1 };
@@ -90,6 +91,7 @@ static void build_column(lv_obj_t* group, int idx, int x, const char* name, lv_c
     lv_obj_set_style_pad_bottom(c.badge, 2, 0);
     lv_obj_align(c.badge, LV_ALIGN_TOP_RIGHT, -12, 12);
     c.stamp = 0;
+    c.has_data = false;
     c.stale_shown = false;
 
     static const char* const names[2] = {"5h", "Weekly"};
@@ -135,6 +137,20 @@ static void set_section(Section& s, float pct, int reset_mins) {
     lv_label_set_text(s.reset, buf);
 }
 
+static void render_badge(Column& c) {
+    char buf[12];
+    format_hhmm(c.stamp, buf, sizeof(buf));
+    lv_label_set_text(c.badge, buf);
+}
+
+// Badge hour format follows the title clock: taken only from payloads that
+// carry one (tf defaults to 24 when absent). Re-renders both badges on change.
+static void take_clock_fmt(const UsageData* d) {
+    if (d->clock_epoch <= 0 || d->clock_fmt == clock_fmt) return;
+    clock_fmt = d->clock_fmt;
+    for (Column& c : cols) render_badge(c);
+}
+
 static void set_badge_stale(Column& c, bool stale) {
     if (stale == c.stale_shown) return;
     c.stale_shown = stale;
@@ -157,34 +173,39 @@ void ui_dual_build(lv_obj_t* container, lv_obj_t* group) {
     lv_obj_add_flag(link_dot, LV_OBJ_FLAG_EVENT_BUBBLE);
 }
 
-void ui_dual_update(const UsageData* d, long now_epoch) {
-    clock_fmt = d->clock_fmt;
+void ui_dual_update_claude(const UsageData* d, long now_epoch) {
+    // Enterprise ("acct":"ent") has no landscape layout: its spending % shows under "5h".
+    Column& c = cols[CLAUDE];
+    take_clock_fmt(d);
+    set_section(c.sec[0], d->session_pct, d->session_reset_mins);
+    set_section(c.sec[1], d->weekly_pct, d->weekly_reset_mins);
+    c.stamp = now_epoch;
+    c.has_data = true;
+    render_badge(c);
+}
 
-    set_section(cols[CLAUDE].sec[0], d->session_pct, d->session_reset_mins);
-    set_section(cols[CLAUDE].sec[1], d->weekly_pct, d->weekly_reset_mins);
-    cols[CLAUDE].stamp = now_epoch;
-
+void ui_dual_update_codex(const UsageData* d) {
+    Column& c = cols[CODEX];
+    take_clock_fmt(d);
     if (d->codex_ok) {
-        set_section(cols[CODEX].sec[0], d->codex_session_pct, d->codex_session_reset_mins);
-        set_section(cols[CODEX].sec[1], d->codex_weekly_pct, d->codex_weekly_reset_mins);
+        set_section(c.sec[0], d->codex_session_pct, d->codex_session_reset_mins);
+        set_section(c.sec[1], d->codex_weekly_pct, d->codex_weekly_reset_mins);
+        c.stamp = d->codex_epoch;
+        c.has_data = true;
     } else {
-        set_section(cols[CODEX].sec[0], -1.0f, -1);
-        set_section(cols[CODEX].sec[1], -1.0f, -1);
+        set_section(c.sec[0], -1.0f, -1);
+        set_section(c.sec[1], -1.0f, -1);
+        c.stamp = 0;
     }
-    cols[CODEX].stamp = d->codex_ok ? d->codex_epoch : 0;
-
-    char buf[12];
-    for (Column& c : cols) {
-        format_hhmm(c.stamp, buf, sizeof(buf));
-        lv_label_set_text(c.badge, buf);
-    }
-    ui_dual_tick(now_epoch, 0);
+    render_badge(c);
 }
 
 void ui_dual_tick(long now_epoch, uint32_t claude_age_ms) {
-    set_badge_stale(cols[CLAUDE], claude_age_ms > (uint32_t)STALE_S * 1000u);
-    const long codex_ts = cols[CODEX].stamp;
-    set_badge_stale(cols[CODEX], codex_ts > 0 && now_epoch > 0 && now_epoch - codex_ts > STALE_S);
+    const Column& cl = cols[CLAUDE];
+    set_badge_stale(cols[CLAUDE], cl.has_data && claude_age_ms > (uint32_t)STALE_S * 1000u);
+    const Column& cx = cols[CODEX];
+    set_badge_stale(cols[CODEX], cx.has_data && cx.stamp > 0 && now_epoch > 0
+                                 && now_epoch - cx.stamp > STALE_S);
 }
 
 void ui_dual_set_live(bool live) {

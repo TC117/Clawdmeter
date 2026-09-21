@@ -263,6 +263,10 @@ static lv_obj_t* idle_group;            // the "Zzz" idle screen
 static uint32_t  last_data_ms = 0;      // lv_tick when the last valid usage update landed
 static bool      data_received = false; // any valid update since boot
 static bool      data_ok = true;        // last payload's ok flag; a {"ok":false} beat = "no fresh data"
+// Landscape only: any valid payload (ok or not) keeps the two-column view live,
+// since the Codex column and clock still update while Claude has no data.
+static uint32_t  last_payload_ms = 0;
+static bool      payload_received = false;
 static int       view_state = -1;       // -1 unknown / 0 pair / 1 idle / 2 usage
 static const uint32_t DATA_FRESH_MS = 90000;  // usage counts as "live" within this window (daemon sends ~60s)
 
@@ -639,27 +643,46 @@ static long current_epoch(uint32_t now) {
     return clock_base_epoch > 0 ? clock_base_epoch + (long)((now - clock_base_ms) / 1000) : 0;
 }
 
-void ui_update(const UsageData* data) {
-    if (!data->valid) return;
-    data_ok = data->ok;
-    if (!data->ok) return;          // a {"ok":false} "no data" beat → fall through to idle, keep last numbers
-    last_data_ms = lv_tick_get();   // a real usage update just landed
-    data_received = true;
-
+static void apply_clock(const UsageData* data, uint32_t now) {
     if (data->clock_epoch > 0) {    // daemon supplied wall-clock time → drive the title clock
         clock_base_epoch = data->clock_epoch;
-        clock_base_ms = last_data_ms;
+        clock_base_ms = now;
         clock_fmt = data->clock_fmt;
     } else if (clock_base_epoch != 0) {   // clock turned off daemon-side → revert title to "Usage"
         clock_base_epoch = 0;
         clock_last_min = -1;
         lv_label_set_text(lbl_title, "Usage");
     }
+}
 
-    if (L.landscape) {
-        ui_dual_update(data, current_epoch(last_data_ms));
-        return;
+// Landscape: the Claude column follows ok:true payloads only (an ok:false beat
+// keeps its last numbers and lets the badge age); the clock and the Codex column
+// follow every payload, so a Claude outage leaves the rest of the view live.
+static void update_landscape(const UsageData* data) {
+    const uint32_t now = lv_tick_get();
+    // A bare {"ok":false} (daemons that don't attach t/tf to it) keeps the clock
+    // ticking; only a payload that is ok or carries a clock may change it.
+    if (data->ok || data->clock_epoch > 0) apply_clock(data, now);
+    if (data->ok) {
+        last_data_ms = now;
+        data_received = true;
+        ui_dual_update_claude(data, current_epoch(now));
     }
+    last_payload_ms = now;
+    payload_received = true;
+    ui_dual_update_codex(data);
+    ui_dual_tick(current_epoch(now), now - last_data_ms);
+}
+
+void ui_update(const UsageData* data) {
+    if (!data->valid) return;
+    if (L.landscape) { update_landscape(data); return; }
+    data_ok = data->ok;
+    if (!data->ok) return;          // a {"ok":false} "no data" beat → fall through to idle, keep last numbers
+    last_data_ms = lv_tick_get();   // a real usage update just landed
+    data_received = true;
+
+    apply_clock(data, last_data_ms);
 
     int s_pct = (int)(data->session_pct + 0.5f);
 
@@ -738,6 +761,13 @@ static void update_view_state(void) {
     int v;
     if (!s_ble_connected) {
         v = 0;  // pairing hint
+    } else if (L.landscape) {
+        // Live while the daemon keeps sending anything: a Claude outage still
+        // shows the (live) Codex column and the aging Claude badge.
+        const uint32_t now = lv_tick_get();
+        const bool claude_fresh = data_received && (now - last_data_ms) < DATA_FRESH_MS;
+        const bool any_fresh = payload_received && (now - last_payload_ms) < DATA_FRESH_MS;
+        v = (claude_fresh || any_fresh) ? 2 : 1;
     } else if (data_received && data_ok && (lv_tick_get() - last_data_ms) < DATA_FRESH_MS) {
         v = 2;  // live usage
     } else {
