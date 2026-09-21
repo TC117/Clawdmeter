@@ -124,7 +124,9 @@ def read_chime_setting() -> str:
     """
     try:
         if CONFIG_FILE.exists():
-            for line in CONFIG_FILE.read_text().splitlines():
+            # utf-8-sig: PowerShell 5.1 writes a BOM that would glue onto the first key.
+            text = CONFIG_FILE.read_text(encoding="utf-8-sig", errors="replace")
+            for line in text.splitlines():
                 line = line.split("#", 1)[0].strip()
                 if "=" not in line:
                     continue
@@ -145,7 +147,9 @@ def read_clock_setting() -> str:
     """
     try:
         if CONFIG_FILE.exists():
-            for line in CONFIG_FILE.read_text().splitlines():
+            # utf-8-sig: PowerShell 5.1 writes a BOM that would glue onto the first key.
+            text = CONFIG_FILE.read_text(encoding="utf-8-sig", errors="replace")
+            for line in text.splitlines():
                 line = line.split("#", 1)[0].strip()
                 if "=" not in line:
                     continue
@@ -186,6 +190,19 @@ def add_clock_fields(payload: dict) -> None:
     tf = 24 if clock == "24" else 12 if clock == "12" else detect_hour_format()
     payload["t"] = int(time.time()) + time.localtime().tm_gmtoff
     payload["tf"] = tf
+
+
+def _no_data_payload() -> dict:
+    """The "Claude has no data" beat: {"ok": False} plus the clock and Codex keys.
+
+    Claude being down (no token / expired) must not blank the landscape view's
+    clock or its Codex column; portrait firmware returns on ok:false before
+    reading anything else, so the extra keys are harmless there.
+    """
+    payload = {"ok": False}
+    add_clock_fields(payload)   # "t"/"tf" iff the config opts in
+    add_codex_fields(payload)   # cok/cs/csr/cw/cwr/ct
+    return payload
 
 
 async def poll_api(token: str) -> dict | None:
@@ -629,7 +646,7 @@ async def connect_and_run(device, stop_event: asyncio.Event, tray_state=None) ->
                     log("No token; signalling no-data to device")
                     if tray_state:
                         tray_state.set_error("token expired — run claude login")
-                    if await session.write_payload({"ok": False}):
+                    if await session.write_payload(_no_data_payload()):
                         last_poll = time.time()
                         consecutive_failures = 0  # D-03: healthy link
                     elif note_write_failure():
@@ -661,7 +678,7 @@ async def connect_and_run(device, stop_event: asyncio.Event, tray_state=None) ->
                         # Token genuinely dead -> show "No data" now instead of stale numbers.
                         # Transient poll failures (payload None without expiry) stay silent.
                         log("No data (token dead); signalling idle to device")
-                        if await session.write_payload({"ok": False}):
+                        if await session.write_payload(_no_data_payload()):
                             last_poll = time.time()
                             consecutive_failures = 0  # D-03: healthy link
                         elif note_write_failure():

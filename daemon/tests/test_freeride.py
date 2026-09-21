@@ -85,9 +85,13 @@ def test_freeride_autherror_emits_no_data_beat():
             writes.append(data)
 
         client.write_gatt_char = AsyncMock(side_effect=cap_write)
+        # The beat also carries clock + Codex keys (test_windows_codex_wiring.py);
+        # stub them out so this stays hermetic (no real config / ~/.codex reads).
         with patch.object(mod, "BleakClient", return_value=client), \
              patch.object(mod, "read_token", return_value="EXPIRED"), \
-             patch.object(mod, "poll_api", new=fake_poll):
+             patch.object(mod, "poll_api", new=fake_poll), \
+             patch.object(mod, "add_clock_fields", lambda p: None), \
+             patch.object(mod, "add_codex_fields", lambda p: None):
             await mod.connect_and_run(device, stop_event)
 
     asyncio.run(go())
