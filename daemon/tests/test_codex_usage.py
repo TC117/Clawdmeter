@@ -142,3 +142,70 @@ def test_add_codex_fields_survives_malformed_reading(monkeypatch):
     payload = {}
     cu.add_codex_fields(payload, now=NOW)
     assert payload == {"cok": False}
+
+
+def test_add_codex_fields_keeps_live_reading_when_log_scan_fails(monkeypatch):
+    # A log-scan error must not discard a fresh live reading from the app-server.
+    def boom(*_a, **_k):
+        raise OSError("sessions dir unreadable")
+
+    class LiveStub:
+        reading = (NOW - 30, {
+            "primary": {"usedPercent": 52, "windowDurationMins": 300, "resetsAt": NOW + 3600},
+            "secondary": {"usedPercent": 61, "windowDurationMins": 10080, "resetsAt": NOW + 86400},
+        })
+
+    monkeypatch.setattr(cu, "newest_logged", boom)
+    monkeypatch.setattr(cu, "_live", LiveStub())
+    payload = {}
+    cu.add_codex_fields(payload, now=NOW)
+    assert payload["cok"] is True
+    assert payload["cs"] == 52 and payload["cw"] == 61
+
+
+def test_retry_delay_backs_off_and_caps():
+    # 0 = the last session produced a reading; n = n sessions in a row without one.
+    delays = [cu.retry_delay(n) for n in range(0, 9)]
+    assert delays == [30, 30, 60, 120, 240, 480, 600, 600, 600]
+    assert cu.retry_delay(10_000) == 600
+
+
+def test_codex_live_run_backs_off_then_resets_after_a_reading(monkeypatch):
+    class Stop(Exception):
+        pass
+
+    live = cu.CodexLive.__new__(cu.CodexLive)  # skip __init__: no background thread
+    live.reading, live.err = None, None
+    outcomes = iter([False, False, False, True, False, False])  # True = session got a reading
+
+    def session():
+        if next(outcomes):
+            live.reading = (NOW, {"primary": {}})
+            raise RuntimeError("codex app-server exited")
+        raise RuntimeError("codex CLI not on PATH")
+
+    sleeps = []
+
+    def fake_sleep(s):
+        sleeps.append(s)
+        if len(sleeps) == 6:
+            raise Stop
+
+    live._session = session
+    monkeypatch.setattr(cu.time, "sleep", fake_sleep)
+    try:
+        live._run()
+    except Stop:
+        pass
+    assert sleeps == [30, 60, 120, 30, 30, 60]
+    assert live.err == "RuntimeError: codex CLI not on PATH"
+
+
+def test_pump_lines_copies_every_line_in_order():
+    import io
+    import queue
+
+    q = queue.Queue()
+    cu.pump_lines(io.BytesIO(b'{"id":1}\n{"id":2}\nnoise\n'), q)
+    got = [q.get_nowait() for _ in range(q.qsize())]
+    assert got == [b'{"id":1}\n', b'{"id":2}\n', b"noise\n"]

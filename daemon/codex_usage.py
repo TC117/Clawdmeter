@@ -26,6 +26,8 @@ TAIL_BYTES = 512 * 1024
 MAX_SESSION_FILES = 30
 CODEX_POLL = 60          # live read interval (s)
 CODEX_LIVE_MAX_AGE = 300  # older live readings lose to the session logs
+RETRY_MIN_S = 30          # app-server restart delay after a productive session...
+RETRY_MAX_S = 600         # ...doubling per unproductive one, up to this cap
 
 
 def iso_epoch(value):
@@ -131,6 +133,19 @@ def pick_reading(logged, live, now):
     return logged
 
 
+def retry_delay(failures):
+    """Seconds to wait before restarting the app-server. `failures` counts the sessions in
+    a row that produced no reading (0 = the last one did): 30, 30, 60, 120 ... capped at 600,
+    so a missing or broken CLI isn't respawned every 30 s forever."""
+    return min(RETRY_MIN_S * 2 ** min(max(failures - 1, 0), 5), RETRY_MAX_S)
+
+
+def pump_lines(stream, lines):
+    """Copy every line of the app-server's stdout into the `lines` queue (reader thread)."""
+    for line in stream:
+        lines.put(line)
+
+
 class CodexLive:
     """Live Codex limits from the official `codex app-server` (OpenAI's documented JSON-RPC
     protocol for embedding Codex). One long-lived process asked every CODEX_POLL seconds;
@@ -142,12 +157,15 @@ class CodexLive:
         threading.Thread(target=self._run, daemon=True, name="codex-live").start()
 
     def _run(self):
+        failures = 0
         while True:
+            before = self.reading
             try:
                 self._session()
             except Exception as e:  # keep the daemon alive whatever the CLI does
                 self.err = f"{type(e).__name__}: {e}"
-            time.sleep(30)
+            failures = 0 if self.reading is not before else failures + 1
+            time.sleep(retry_delay(failures))
 
     def _session(self):
         exe = shutil.which("codex")
@@ -157,7 +175,7 @@ class CodexLive:
         proc = subprocess.Popen([exe, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, creationflags=no_window)
         lines = queue.Queue()
-        threading.Thread(target=lambda: [lines.put(l) for l in proc.stdout], daemon=True).start()
+        threading.Thread(target=pump_lines, args=(proc.stdout, lines), daemon=True).start()
         try:
             self._call(proc, lines, 1, "initialize",
                        {"clientInfo": {"name": "clawdmeter", "title": "Clawdmeter daemon", "version": "1.0"}})
@@ -225,9 +243,13 @@ def add_codex_fields(payload, now=None):
     """Merge Codex keys into a Claude payload. Never raises: Codex trouble must not
     cost the Claude numbers, it just shows as "No data" in the Codex column."""
     now = time.time() if now is None else now
+    live = _live.reading if _live else None
     try:
-        reading = pick_reading(newest_logged(), _live.reading if _live else None, now)
-        fields = codex_fields(reading, now)
+        logged = newest_logged()
+    except Exception:
+        logged = None  # a log-scan error must not discard a fresh live reading
+    try:
+        fields = codex_fields(pick_reading(logged, live, now), now)
     except Exception:
         fields = {"cok": False}
     payload.update(fields)
