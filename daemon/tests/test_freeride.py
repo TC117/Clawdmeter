@@ -67,8 +67,9 @@ def _connected_client():
 
 def test_freeride_autherror_emits_no_data_beat():
     """On a 401 (AuthError) the daemon emits a {"ok": false} no-data beat and exits the
-    poll cleanly — there is no refresh path to fall back on. The device then shows its
-    idle 'No data' screen instead of stale numbers."""
+    poll cleanly — it never refreshes the token itself (it may only nudge the Claude
+    Code CLI, which conftest.py stubs out). The device then shows its idle 'No data'
+    screen instead of stale numbers."""
     import daemon.claude_usage_daemon_windows as mod
     device = MagicMock(); device.address = "AA:BB:CC:DD:EE:FF"
     client = _connected_client()

@@ -28,8 +28,10 @@ from bleak.exc import BleakError
 
 try:
     from daemon.codex_usage import add_codex_fields, start_live as start_codex_live
+    from daemon.claude_cli_refresh import request_refresh as request_cli_refresh
 except ImportError:  # run as a script: python daemon\claude_usage_daemon_windows.py
     from codex_usage import add_codex_fields, start_live as start_codex_live
+    from claude_cli_refresh import request_refresh as request_cli_refresh
 
 DEVICE_NAME = "Clawdmeter"
 SERVICE_UUID = "4c41555a-4465-7669-6365-000000000001"
@@ -117,11 +119,8 @@ class AuthError(Exception):
     must NOT be mislabeled as a token problem (SC#5: a boot-time `getaddrinfo
     failed` DNS blip wrongly fired the 'token expired' toast)."""
 
-def read_chime_setting() -> str:
-    """Read the `chime` option from the config file. One of: off|on.
-
-    Defaults to "off" so the device stays silent until the user opts in.
-    """
+def _read_setting(name: str, allowed: tuple, default: str) -> str:
+    """Value of `name=value` in the config file if it is one of `allowed`, else default."""
     try:
         if CONFIG_FILE.exists():
             # utf-8-sig: PowerShell 5.1 writes a BOM that would glue onto the first key.
@@ -131,13 +130,21 @@ def read_chime_setting() -> str:
                 if "=" not in line:
                     continue
                 key, val = line.split("=", 1)
-                if key.strip().lower() == "chime":
+                if key.strip().lower() == name:
                     val = val.strip().lower()
-                    if val in ("off", "on"):
+                    if val in allowed:
                         return val
     except OSError:
         pass
-    return "off"
+    return default
+
+
+def read_chime_setting() -> str:
+    """Read the `chime` option from the config file. One of: off|on.
+
+    Defaults to "off" so the device stays silent until the user opts in.
+    """
+    return _read_setting("chime", ("off", "on"), "off")
 
 
 def read_clock_setting() -> str:
@@ -145,22 +152,16 @@ def read_clock_setting() -> str:
 
     Defaults to "off" so existing setups keep showing "Usage" until opted in.
     """
-    try:
-        if CONFIG_FILE.exists():
-            # utf-8-sig: PowerShell 5.1 writes a BOM that would glue onto the first key.
-            text = CONFIG_FILE.read_text(encoding="utf-8-sig", errors="replace")
-            for line in text.splitlines():
-                line = line.split("#", 1)[0].strip()
-                if "=" not in line:
-                    continue
-                key, val = line.split("=", 1)
-                if key.strip().lower() == "clock":
-                    val = val.strip().lower()
-                    if val in ("off", "auto", "12", "24"):
-                        return val
-    except OSError:
-        pass
-    return "off"
+    return _read_setting("clock", ("off", "auto", "12", "24"), "off")
+
+
+def read_token_refresh_setting() -> str:
+    """Read the `token_refresh` option from the config file. One of: on|off.
+
+    "on" (default): on an expired token, ask the Claude Code CLI to renew it
+    (claude_cli_refresh.py; costs one tiny Haiku call per renewal).
+    """
+    return _read_setting("token_refresh", ("on", "off"), "on")
 
 
 def add_chime_field(payload: dict) -> None:
@@ -658,12 +659,15 @@ async def connect_and_run(device, stop_event: asyncio.Event, tray_state=None) ->
                         payload = await poll_api(token)
                     except AuthError:
                         # Pure free-ride: we never refresh. A 401/403 means Claude Code's
-                        # token has expired and only Claude Code (its owner) can re-seed it.
+                        # token has expired and only Claude Code (its owner) can re-seed it,
+                        # so ask its CLI to (at most once per 15 min, token_refresh=on).
                         expired = True
                         log("Token expired/invalid; signalling no-data — run `claude login` "
                             "or use the CLI to let Claude Code renew it")
                         if tray_state:
                             tray_state.set_error("token expired — run claude login")
+                        if read_token_refresh_setting() == "on":
+                            request_cli_refresh(log)
                     if payload is not None:
                         add_codex_fields(payload)  # Codex column (cok/cs/csr/cw/cwr/ct)
                         if await session.write_payload(payload):
