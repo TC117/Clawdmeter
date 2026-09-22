@@ -26,7 +26,9 @@ MODEL = "claude-haiku-4-5-20251001"
 # Run outside the user's projects so the CLI's per-directory history stays apart.
 WORK_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "Clawdmeter"
 
-_last_attempt = None  # time.monotonic() of the last attempt, successful or not
+# time.monotonic() of the last attempt, successful or not. Unlocked: request_refresh
+# is only ever called from the daemon's single asyncio loop thread.
+_last_attempt = None
 
 
 def build_command(exe):
@@ -35,8 +37,11 @@ def build_command(exe):
 
 def _kill_tree(proc):
     if os.name == "nt":
-        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        try:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True,
+                           timeout=10, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except (OSError, subprocess.TimeoutExpired):
+            pass
     else:
         proc.kill()
 
@@ -44,20 +49,23 @@ def _kill_tree(proc):
 def _run(exe, log):
     log("Token expired: asking the Claude Code CLI to renew it")
     try:
-        WORK_DIR.mkdir(parents=True, exist_ok=True)
-        proc = subprocess.Popen(build_command(exe), cwd=WORK_DIR, stdin=subprocess.DEVNULL,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except OSError as e:
-        log(f"Token renewal: could not start the Claude Code CLI: {e}")
-        return
-    try:
-        code = proc.wait(timeout=TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        _kill_tree(proc)
-        log(f"Token renewal: Claude Code CLI timed out after {TIMEOUT_S}s")
-        return
-    log(f"Token renewal: Claude Code CLI finished (exit {code})")
+        try:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            proc = subprocess.Popen(build_command(exe), cwd=WORK_DIR, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except OSError as e:
+            log(f"Token renewal: could not start the Claude Code CLI: {e}")
+            return
+        try:
+            code = proc.wait(timeout=TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            log(f"Token renewal: Claude Code CLI timed out after {TIMEOUT_S}s")
+            return
+        log(f"Token renewal: Claude Code CLI finished (exit {code})")
+    except Exception as e:  # background thread under pythonw: log it rather than lose it
+        log(f"Token renewal: unexpected error: {e!r}")
 
 
 def _start(exe, log):

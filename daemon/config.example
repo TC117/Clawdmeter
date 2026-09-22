@@ -30,3 +30,11 @@ chime = off
 #   12   = show the clock, forced 12-hour  (e.g. 6:28 PM)
 #   24   = show the clock, forced 24-hour  (e.g. 18:28)
 clock = off
+# Windows daemon only: when Claude Code's ~8 h access token has expired, ask the
+# Claude Code CLI to renew it by running one tiny headless call
+# (claude -p ok --model claude-haiku-4-5-20251001), at most once per 15 minutes.
+# The daemon itself never touches the refresh token.
+#   on  = renew automatically (default); costs one small Haiku call per renewal,
+#         which also starts a 5-hour usage window if none is running
+#   off = never; the display shows "No data" for Claude until you run the CLI
+token_refresh = on

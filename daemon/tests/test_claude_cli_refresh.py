@@ -82,6 +82,15 @@ def test_run_kills_the_whole_tree_on_timeout(monkeypatch, tmp_path):
     assert any("timed out" in m for m in logs)
 
 
+def test_run_logs_unexpected_errors_instead_of_raising(monkeypatch, tmp_path):
+    monkeypatch.setattr(cr.subprocess, "Popen",
+                        lambda cmd, **kw: FakeProc(wait_raises=RuntimeError("handle closed")))
+    monkeypatch.setattr(cr, "WORK_DIR", tmp_path)
+    logs = []
+    cr._run(EXE, logs.append)  # must not raise
+    assert any("handle closed" in m for m in logs)
+
+
 def test_run_never_raises_when_the_cli_cannot_start(monkeypatch, tmp_path):
     def boom(cmd, **kw):
         raise OSError("access denied")

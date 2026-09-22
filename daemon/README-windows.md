@@ -142,7 +142,7 @@ Press **Ctrl+C** in the terminal. The daemon logs `Daemon stopping` and exits cl
 | `Warning: running under Linux/WSL` | Running in WSL, not native Windows | Run from a native PowerShell or Command Prompt on Windows |
 | `Scanning for 'Clawdmeter'… Device not found` | Clawdmeter is off, out of range, or not yet paired | Power on the device, pair it once (see [Pair the device](#pair-the-device-one-time)), and ensure it is in range |
 | `No token; skipping poll` | No credentials file found at any candidate path | Confirm `claude login` ran on this machine; check `%USERPROFILE%\.claude\.credentials.json` exists |
-| `API HTTP 401` | Token expired | Re-run `claude login` in a terminal to refresh the token, then restart the daemon |
+| `API HTTP 401` | Token expired (Claude Code renews its ~8 h token only when the CLI runs) | With `token_refresh = on` (default) the daemon runs one tiny `claude -p` so the CLI renews its own token, at most every 15 min; data returns within about a minute. If it keeps failing, run `claude login` — no daemon restart needed |
 | `Connection failed` | WinRT BLE initialisation issue | Ensure Windows Bluetooth is on; try toggling Bluetooth off/on in Windows Settings |
 
 ---
