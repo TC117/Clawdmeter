@@ -3,8 +3,8 @@
 A 3D-printable stand for the hand-wired **YD-ESP32-S3 (ESP32-S3-DevKitC-1 clone) +
 LCDwiki MSP4031 4.0" ST7796S** build. It's a small monitor shape: the screen
 leans back 15°, the ESP32 rides on the back cover, USB-C comes out the left
-side, and a flex tab on the back presses the BOOT key (screen off/on on this
-port).
+side, and two flex keys on the back press the board's **BOOT** (screen off/on
+on this port) and **RST** buttons.
 
 | Front | Back | Exploded |
 |---|---|---|
@@ -19,12 +19,13 @@ wedge adds under the screen).
 |---|---|---|
 | `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~20 g |
 | `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~68 g |
-| `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT flex tab | ~29 g |
+| `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT + RST flex keys | ~29 g |
 | `stl/stand_25.stl` / `stand_30.stl` / `stand_35.stl` | Optional stand that reclines the screen to 25°, 30° or 35° (see [Stand](#stand-optional)) | ~20–22 g |
 
 The STLs are already in print orientation (shell and fit test face-down, lid
 outer face down, stand upright). **No supports.** PrusaSlicer flags the lid for "long
-bridging"; that's the engraved lettering on its bottom face and prints fine.
+bridging"; that's the engraved lettering and key dots on its bottom face, and
+it prints fine.
 Use at least 3 perimeters so the 2.4 mm walls come out solid.
 
 Also needed:
@@ -44,7 +45,7 @@ numbers most likely to differ on your parts. Check them with calipers:
 | `disp_w` × `disp_h` | 108.00 × 60.88 | Display PCB outline |
 | `disp_stack` | 4.2 | Glass + touch panel thickness, from the PCB front face to the front of the glass |
 | `aa_left` | 9.36 | Left edge of the lit picture area to the left PCB edge (the edge **away** from the J2 header) |
-| `btn_h` | 2.5 | BOOT key height above the ESP32 PCB |
+| `btn_h` | 2.5 | BOOT / RST button height above the ESP32 PCB |
 | `wire_space` | 24.5 | Room for the dupont housings + wire bend. Shorter or soldered wiring → set lower for a thinner case |
 
 The **fit test** answers the first three: the display should drop into the
@@ -66,7 +67,7 @@ openscad -o shell.stl -D 'part="shell"' -D 'tilt=20' clawdmeter_devkitc_st7796.s
 ```
 
 Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
-`boot_style` (`flex` / `hole` / `none`), `lid_text`, `nub_gap`.
+`button_style` (`flex` / `hole` / `none`), `lid_text`, `nub_gap`.
 
 ## Assembly
 
@@ -75,7 +76,9 @@ Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
 2. **ESP32:** put double-sided tape on the two small pads in the middle of the
    lid. Press the board in **component side down** (the WROOM module sits on
    the pads), between the two rails, with the USB-C end at the lid edge that
-   lines up with the slot. The antenna end touches the end stop.
+   lines up with the slot. **Push it toward the antenna end until the
+   antenna touches the end stop**: that's the position the key nubs are
+   lined up for.
 3. **Wiring:** same pin map as now (see `firmware/src/boards/devkitc_st7796/board.h`).
    10 cm dupont wires are much easier to fit than 20 cm ones.
 4. Stick 1 mm foam tape on each of the 4 pusher tips. They hold the display
@@ -83,12 +86,20 @@ Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
 5. Close the lid over the shell (USB end to the slot side) and fit the 4 screws.
 6. Plug in. The port labelled **UART** is the CH343 serial port (flashing,
    serial monitor); **USB** is the S3's native USB. Either one powers it.
-7. Press the tab marked **BOOT** on the back: the screen should turn off, and
-   pressing again turns it back on.
+7. Test the two keys on the back. Press on the dot, not near the hinge.
+   - **BOOT** turns the screen off, and pressing it again turns it back on.
+   - **RST** restarts the board: the screen goes dark for a moment, then comes back.
 
-**If the screen stays dark after closing the lid**, the BOOT nub is holding
-BOOT down at power-up, which puts the ESP32 into its bootloader. Raise
-`nub_gap` (or file the nub down a little) and reprint the lid.
+   BOOT and RST are only 5.3 mm apart on the board, so the two keys interlock.
+   BOOT's key hangs down from above, RST's comes up from below, and the tips
+   meet over the buttons. The dots you press are about 13 mm apart, so one
+   finger doesn't hit both.
+
+**If the screen stays dark after closing the lid**, a key nub is holding its
+button down: BOOT held at power-up puts the ESP32 into its bootloader, and
+RST held keeps it in reset. Raise `nub_gap` (or file that nub down a little)
+and reprint the lid. **If a key clicks nothing**, the board has probably slid
+away from the end stop, or your buttons are shorter than `btn_h`.
 
 ## Stand (optional)
 
@@ -103,13 +114,13 @@ Footprint is about 104 × 88 mm.
 
 The case drops into a V-shaped seat with its back cover against two uprights,
 and a small lip in front of the chin stops it sliding forward. The uprights
-stop below the BOOT tab, and the USB-C slot on the left side stays clear.
+stop below the BOOT / RST keys, and the USB-C slot on the left side stays clear.
 Nothing screws together: lift the case out to use it without the stand.
 
 - Four small rubber feet under the corners keep it from sliding when you tap
   the screen.
-- Pressing **BOOT** on the back pushes the case forward and up out of the
-  seat. Pinch it instead: thumb on the tab, fingers on the front bezel.
+- Pressing **BOOT** or **RST** on the back pushes the case forward and up out
+  of the seat. Pinch it instead: thumb on the key, fingers on the front bezel.
 
 The stand was checked in OpenSCAD for clearance against the case at all three
 angles. With the display and ESP32 inside, the centre of mass sits about

@@ -3,8 +3,8 @@
 //
 // Two printed parts, no supports needed:
 //   shell — front bezel + walls + tilt wedge. Print front face down.
-//   lid   — back cover. The ESP32 cradle, display pushers and the BOOT flex
-//           button hang off its inner face. Print outer face down.
+//   lid   — back cover. The ESP32 cradle, display pushers and the BOOT / RST
+//           flex keys hang off its inner face. Print outer face down.
 // Plus `fit_test`, a 30-minute slice of the bezel + display pocket. Print it
 // first and check the display drops in and the window lines up with the
 // picture before committing to the full shell.
@@ -48,8 +48,10 @@ usbc_h      = 3.3;
 usbc_pitch  = 11.1;   // centre-to-centre of the two USB-C ports
 boot_x      = 28.4;   // BOOT centre from the USB end of the PCB
 boot_y      = 5.2;    // BOOT offset from the board centre line, + = toward the case top
+rst_x       = 33.7;   // RST centre from the USB end (same side line as BOOT)
+rst_y       = 5.2;
 btn_h       = 2.5;    // measure: tact switch height above the PCB
-nub_gap     = 0.6;    // BOOT nub clearance. Too small and BOOT is held at power-up (bootloader, dark screen).
+nub_gap     = 0.6;    // key nub clearance. Too small and BOOT/RST is held at power-up (dark screen).
 wire_space  = 24.5;   // dupont housings + wire bend between the boards. Shorter wiring = thinner case.
 
 /* [Case] */
@@ -68,7 +70,7 @@ pusher_d    = 6.5;
 pusher_gap  = 0.8;    // filled by 1 mm foam tape on each pusher tip
 usb_slot_w  = 24.5;   // covers both USB-C ports
 usb_slot_h  = 9.5;
-boot_style  = "flex"; // [flex, hole, none]
+button_style = "flex"; // [flex, hole, none] how BOOT and RST are reached through the lid
 lid_text    = "Clawdmeter";
 side_labels = true;   // engrave UART / USB next to the port slot
 
@@ -123,7 +125,16 @@ d_usb  = d_comp + usbc_h / 2;         // USB-C port centre
 
 bx = ex0 + boot_x;                    // BOOT button
 by = ey + boot_y;
-tab_w = 7;  tab_len = 18;  tab_t = 1.2;  tab_gap = 1.0;
+rx = ex0 + rst_x;                     // RST button
+ry = ey + rst_y;
+// Flex keys. BOOT and RST sit 5.3 mm apart, too close for two keys side by
+// side, so they interlock: BOOT's key hangs down from above, RST's reaches up
+// from below, and the two tips meet across the buttons. Local key frame:
+// u across the key (+ = toward the other button), v along it (+ = toward the
+// hinge), nub at u = v = 0.
+key_len = 18;  key_t = 1.2;  key_gap = 1.0;  key_tip = 2.0;  key_out = 6;
+key_in  = (abs(rx - bx) - key_gap) / 2;
+keys = [[bx, by, sign(rx - bx), 1, "BOOT"], [rx, ry, sign(bx - rx), -1, "RST"]];
 
 // Sanity checks: the lid screw bosses must clear the display as it drops in.
 assert(norm([margin - boss_in, margin - boss_in]) > boss_d / 2,
@@ -217,10 +228,10 @@ module esp_cradle() {
     for (s = [-1, 1])
         translate([ex0 + 3, ey + s * (esp_w / 2 + 0.3) - (s < 0 ? 1.2 : 0), 0])
             slab(d_rail, D + eps) square([esp_len - 5, 1.2]);
-    // end stop just past the antenna tip
-    translate([ex0 + esp_len + esp_ant + 0.4, ey - 11, 0]) slab(d_rail, D + eps) square([1.5, 22]);
+    // end stop at the antenna tip: push the board against it and the keys line up
+    translate([ex0 + esp_len + esp_ant + 0.1, ey - 11, 0]) slab(d_rail, D + eps) square([1.5, 22]);
     // pads on the WROOM shield — put double-sided tape here
-    for (x = [42, 52]) translate([ex0 + x - 1, ey - 6, 0]) slab(d_comp + wroom_h, D + eps) square([2, 12]);
+    for (x = [44, 53]) translate([ex0 + x - 1, ey - 6, 0]) slab(d_comp + wroom_h, D + eps) square([2, 12]);
     // pads behind the USB-C receptacles so plugging in doesn't flex the board
     for (s = [-1, 1]) translate([ex0 + 1, ey + s * usbc_pitch / 2 - 3, 0])
         slab(d_comp + usbc_h, D + eps) square([5, 6]);
@@ -228,24 +239,28 @@ module esp_cradle() {
 
 module pushers() for (p = hole_pts) tube(p[0], p[1], d_pcb_back + pusher_gap, D + eps, pusher_d, 2.8);
 
-// Cantilever cut out of the lid; its nub sits just above the BOOT key.
-module boot_tab_cut() {
-    xt = bx + 2.5;                    // free end, past the nub
-    xr = xt - tab_len;                // hinge
+module key_frame(k) translate([k[0], k[1], 0]) scale([k[2], k[3], 1]) children();
+
+// Cantilever cut out of the lid; its nub sits just above the button.
+module key_cut(k) key_frame(k) {
     // U-shaped slot through the lid
     slab(D - 1, DT + 1) difference() {
-        translate([xr, by - tab_w / 2 - tab_gap]) square([tab_len + tab_gap, tab_w + 2 * tab_gap]);
-        translate([xr - 1, by - tab_w / 2]) square([tab_len + 1, tab_w]);
+        translate([-key_out - key_gap, -key_tip - key_gap])
+            square([key_out + key_in + 2 * key_gap, key_len + key_gap]);
+        translate([-key_out, -key_tip]) square([key_out + key_in, key_len + 1]);
     }
-    // thin the tab from the inside so it flexes
-    slab(D - 1, DT - tab_t) translate([xr - 2, by - tab_w / 2]) square([tab_len + 2, tab_w]);
+    // thin the key from the inside so it flexes; this also clears the cradle rail over it
+    slab(d_comp - 1, DT - key_t) translate([-key_out - key_gap, -key_tip - key_gap])
+        square([key_out + key_in + 2 * key_gap, key_len + key_gap + 2]);
+    // finger dot on the outside, 7 mm back from the tip
+    translate([(key_in - key_out) / 2, 5, 0]) slab(DT - 0.4, DT + 1) circle(d = 3);
 }
 
-module boot_nub() {
+module key_nub(k) {
     tip = d_comp + btn_h + nub_gap;
-    translate([bx, by, 0]) hull() {
-        slab(tip + 0.5, DT - tab_t + eps) circle(d = 3.2);
-        slab(tip, tip + eps) circle(d = 2.2);
+    translate([k[0], k[1], 0]) hull() {
+        slab(tip + 0.5, DT - key_t + eps) circle(d = 3.0);
+        slab(tip, tip + eps) circle(d = 2.0);
     }
 }
 
@@ -257,12 +272,15 @@ module lid() {
             esp_cradle();
         }
         for (p = boss_pts) tube(p[0], p[1], D - 1, DT + 1, screw_d);
-        if (boot_style == "flex") boot_tab_cut();
-        if (boot_style == "hole") tube(bx, by, D - 1, DT + 1, 6);
+        for (k = keys) {
+            if (button_style == "flex") key_cut(k);
+            if (button_style == "hole") tube(k[0], k[1], D - 1, DT + 1, 4);
+            if (button_style != "none")   // beside the key's press area, on its outer side
+                lid_label(k[4], k[0] - k[2] * (key_out + key_gap + 6), k[1] + k[3] * 8, 3);
+        }
         if (len(lid_text) > 0) lid_label(lid_text, W / 2, H * 0.24, 8);
-        if (boot_style != "none") lid_label("BOOT", bx - 6, by - tab_w / 2 - tab_gap - 3.5, 3);
     }
-    if (boot_style == "flex") boot_nub();
+    if (button_style == "flex") for (k = keys) key_nub(k);
 }
 
 // ---------------------------------------------------------------- stand
@@ -319,7 +337,8 @@ module esp_dummy() {
     color("#c9c9c9") translate([ex0 + esp_len + esp_ant - 25.5, ey - 9, 0]) slab(d_comp, d_comp + wroom_h) square([25.5, 18]);
     for (s = [-1, 1]) color("#aaa") translate([ex0 - 0.7, ey + s * usbc_pitch / 2 - 4.47, 0])
         slab(d_comp, d_comp + usbc_h) square([7.4, 8.94]);
-    color("#e0e0e0") translate([bx - 1.5, by - 2, 0]) slab(d_comp, d_comp + btn_h) square([3, 4]);
+    for (p = [[bx, by], [rx, ry]]) color("#e0e0e0") translate([p[0] - 1.5, p[1] - 2, 0])
+        slab(d_comp, d_comp + btn_h) square([3, 4]);
     // headers + dupont housings on the pin side
     for (s = [-1, 1]) color("#e8c200") translate([ex0 + 0.64, ey + s * (esp_w / 2 - 1.27) - 1.27, 0])
         slab(d_comp - esp_pcb_t - 2.5, d_comp - esp_pcb_t) square([55.88, 2.54]);
