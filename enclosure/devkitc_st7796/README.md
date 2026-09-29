@@ -20,9 +20,10 @@ wedge adds under the screen).
 | `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~20 g |
 | `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~68 g |
 | `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT flex tab | ~29 g |
+| `stl/stand_25.stl` / `stand_30.stl` / `stand_35.stl` | Optional stand that reclines the screen to 25°, 30° or 35° (see [Stand](#stand-optional)) | ~20–22 g |
 
 The STLs are already in print orientation (shell and fit test face-down, lid
-outer face down). **No supports.** PrusaSlicer flags the lid for "long
+outer face down, stand upright). **No supports.** PrusaSlicer flags the lid for "long
 bridging"; that's the engraved lettering on its bottom face and prints fine.
 Use at least 3 perimeters so the 2.4 mm walls come out solid.
 
@@ -55,8 +56,8 @@ sit just outside the picture on all four sides.
 1. Install [OpenSCAD](https://openscad.org/) (free).
 2. Open `clawdmeter_devkitc_st7796.scad`, then **Window → Customizer**.
 3. Change values, press **F6** (render), then **F7** (export STL). Set `part` to
-   `shell`, `lid` or `fit_test` to choose what gets exported; `assembly` and
-   `exploded` are previews with stand-in boards.
+   `shell`, `lid`, `fit_test` or `stand` to choose what gets exported;
+   `assembly`, `exploded` and `on_stand` are previews with stand-in boards.
 
 Command line:
 
@@ -64,8 +65,8 @@ Command line:
 openscad -o shell.stl -D 'part="shell"' -D 'tilt=20' clawdmeter_devkitc_st7796.scad
 ```
 
-Other useful knobs: `tilt` (0 = upright box, no chin), `boot_style`
-(`flex` / `hole` / `none`), `lid_text`, `nub_gap`.
+Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
+`boot_style` (`flex` / `hole` / `none`), `lid_text`, `nub_gap`.
 
 ## Assembly
 
@@ -88,6 +89,31 @@ Other useful knobs: `tilt` (0 = upright box, no chin), `boot_style`
 **If the screen stays dark after closing the lid**, the BOOT nub is holding
 BOOT down at power-up, which puts the ESP32 into its bootloader. Raise
 `nub_gap` (or file the nub down a little) and reprint the lid.
+
+## Stand (optional)
+
+| On the stand | Stand |
+|---|---|
+| ![on stand](images/on_stand.png) | ![stand](images/stand.png) |
+
+The case stands on its own at 15°. From a chair the screen is easier to read
+leaned back further, so the stand holds it at 25°, 30° or 35°. Pick one STL,
+or set `stand_angle` (20–40°) and export `part="stand"` for any other angle.
+Footprint is about 104 × 88 mm.
+
+The case drops into a V-shaped seat with its back cover against two uprights,
+and a small lip in front of the chin stops it sliding forward. The uprights
+stop below the BOOT tab, and the USB-C slot on the left side stays clear.
+Nothing screws together: lift the case out to use it without the stand.
+
+- Four small rubber feet under the corners keep it from sliding when you tap
+  the screen.
+- Pressing **BOOT** on the back pushes the case forward and up out of the
+  seat. Pinch it instead: thumb on the tab, fingers on the front bezel.
+
+The stand was checked in OpenSCAD for clearance against the case at all three
+angles. With the display and ESP32 inside, the centre of mass sits about
+40 mm inside the footprint at both front and back.
 
 ## Sources
 

@@ -8,6 +8,10 @@
 // Plus `fit_test`, a 30-minute slice of the bezel + display pocket. Print it
 // first and check the display drops in and the window lines up with the
 // picture before committing to the full shell.
+// Optional `stand`: a separate cradle that reclines the case further than the
+// wedge's 15° (`stand_angle`, 20-40°). The case drops into a V-shaped seat,
+// rests its back on two uprights, and a small lip stops it sliding forward.
+// Print it upright.
 //
 // Hardware: 4x M3x10 screws (self-tapping or machine, into printed pilots),
 // 1 mm foam tape for the pusher tips, double-sided tape under the ESP32.
@@ -19,7 +23,7 @@
 // Every dimension marked "measure" is from a datasheet, not from your parts.
 // Check them with calipers and re-export if they differ.
 
-part = "assembly"; // [assembly, exploded, shell, lid, fit_test]
+part = "assembly"; // [assembly, exploded, on_stand, shell, lid, fit_test, stand]
 
 /* [Display: MSP4031 (LCDwiki 4.0in capacitive, ST7796S)] */
 disp_w      = 108.00; // PCB long side (x). Datasheet.
@@ -67,6 +71,20 @@ usb_slot_h  = 9.5;
 boot_style  = "flex"; // [flex, hole, none]
 lid_text    = "Clawdmeter";
 side_labels = true;   // engrave UART / USB next to the port slot
+
+/* [Stand] */
+stand_angle  = 30;    // [20:1:40] screen recline on the stand (the wedge alone gives `tilt`)
+stand_seat   = 3;     // plastic under the case's back-bottom edge
+stand_rest_h = 30;    // how far up the back cover the uprights reach
+stand_rest_t = 4;     // upright thickness behind the back cover
+stand_lip_h  = 3;     // front lip height, up the case front
+stand_lip_t  = 3;
+stand_foot   = 22;    // base run behind the uprights (resists tipping when you tap the screen)
+stand_cheek_w = 12;   // width of each side frame
+stand_cheek_in = 9;   // side frame inset from the case sides (clears the lid screws)
+stand_bar_d  = 10;    // front / back tie bars
+stand_bar_h  = 4;
+stand_clear  = 0.3;
 
 $fn = 48;
 eps = 0.01;
@@ -247,6 +265,44 @@ module lid() {
     if (boot_style == "flex") boot_nub();
 }
 
+// ---------------------------------------------------------------- stand
+// Side view: Y = back, Z = up, desk at Z = 0. The case's back-bottom edge
+// (y = 0 at the lid, depth DT) sits at [0, stand_seat].
+function st_up(t)   = [sin(t), cos(t)];       // case +y
+function st_back(t) = [cos(t), -sin(t)];      // case +depth
+function st_pt(y, d) = [0, stand_seat] + y * st_up(stand_angle) + (d - DT) * st_back(stand_angle);
+
+module stand_profile() {
+    assert(stand_angle >= tilt + 5, "stand_angle must be at least tilt + 5 (the wedge alone gives tilt)");
+    F  = st_pt(floor_y(0), 0);                // chin front-bottom edge: the case's frontmost point
+    lip_y = F[0] - stand_clear;               // vertical lip face; the reclined front leans away above F
+    lip_z = F[1] + stand_lip_h;
+    T  = st_pt(stand_rest_h, DT);             // top of the uprights, on the back cover
+    Tb = T + stand_rest_t * st_back(stand_angle);
+    G  = [Tb[0] + stand_foot, 0];
+    difference() {
+        hull() polygon([[lip_y - stand_lip_t, 0], [lip_y - stand_lip_t, lip_z], [lip_y, lip_z],
+                        T, Tb, [G[0], stand_bar_h], G]);
+        offset(delta = stand_clear) polygon([F, st_pt(floor_y(DT), DT), st_pt(H, DT), st_pt(H, 0)]);
+    }
+}
+
+function stand_front() = st_pt(floor_y(0), 0)[0] - stand_clear - stand_lip_t;
+function stand_back()  = (st_pt(stand_rest_h, DT) + stand_rest_t * st_back(stand_angle))[0] + stand_foot;
+
+module stand() {
+    y0 = stand_front();
+    y1 = stand_back();
+    for (x = [stand_cheek_in, W - stand_cheek_in - stand_cheek_w])
+        translate([x, 0, 0]) rotate([90, 0, 90]) linear_extrude(stand_cheek_w) stand_profile();
+    for (y = [y0, y1 - stand_bar_d])
+        translate([stand_cheek_in, y, 0]) cube([W - 2 * stand_cheek_in, stand_bar_d, stand_bar_h]);
+}
+
+// Case pose on the stand, in the stand's frame.
+module on_stand_pose() translate([0, -DT * cos(stand_angle), stand_seat + DT * sin(stand_angle)])
+    rotate([90 - stand_angle, 0, 0]) children();
+
 // ---------------------------------------------------------------- stand-ins (preview only)
 module display_dummy() {
     color("#1d4e89") translate([px0, py0, 0]) slab(d_pcb_front, d_pcb_back) square([disp_w, disp_h]);
@@ -279,6 +335,11 @@ if (part == "fit_test") rotate([180, 0, 0]) intersection() {
     translate([-1, 0, -(d_frame + 2)]) cube([W + 2, H + 1, d_frame + 2 + eps]);   // chin left off
 }
 // Preview parts stand the case on the desk: z up, screen facing -y.
+if (part == "stand") stand();
+if (part == "on_stand") {
+    color("#d8d2c4") stand();
+    on_stand_pose() { color("#e9e4da") shell(); display_dummy(); color("#d8d2c4") lid(); esp_dummy(); }
+}
 if (part == "assembly" || part == "exploded") rotate([90 - tilt, 0, 0]) {
     gap = part == "exploded" ? 45 : 0;
     color("#e9e4da") shell();
@@ -287,3 +348,4 @@ if (part == "assembly" || part == "exploded") rotate([90 - tilt, 0, 0]) {
 }
 
 echo(str("Case outer: ", W, " x ", H + chin, " (front face) x ", DT, " mm deep; chin ", chin, " mm"));
+echo(str("Stand @ ", stand_angle, " deg: ", W - 2 * stand_cheek_in, " x ", stand_back() - stand_front(), " mm footprint"));
