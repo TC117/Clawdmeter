@@ -1,0 +1,100 @@
+# Desk case: `devkitc_st7796`
+
+A 3D-printable stand for the hand-wired **YD-ESP32-S3 (ESP32-S3-DevKitC-1 clone) +
+LCDwiki MSP4031 4.0" ST7796S** build. It's a small monitor shape: the screen
+leans back 15°, the ESP32 rides on the back cover, USB-C comes out the left
+side, and a flex tab on the back presses the BOOT key (screen off/on on this
+port).
+
+| Front | Back | Exploded |
+|---|---|---|
+| ![front](images/front.png) | ![back](images/back.png) | ![exploded](images/exploded.png) |
+
+Outer size: **122 × 87 × 45 mm** (W × H × D, including the 12 mm chin the tilt
+wedge adds under the screen).
+
+## Parts
+
+| File | What | PLA @ 0.2 mm, 15 % infill |
+|---|---|---|
+| `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~20 g |
+| `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~68 g |
+| `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT flex tab | ~29 g |
+
+The STLs are already in print orientation (shell and fit test face-down, lid
+outer face down). **No supports.** PrusaSlicer flags the lid for "long
+bridging"; that's the engraved lettering on its bottom face and prints fine.
+Use at least 3 perimeters so the 2.4 mm walls come out solid.
+
+Also needed:
+
+- 4 × M3 × 8–10 mm screws (self-tapping, or ordinary machine screws; they cut their own thread in the 2.6 mm pilots)
+- 1 mm double-sided foam tape (for the 4 pusher tips)
+- double-sided tape (under the ESP32)
+
+## Measure before you print
+
+The model is built from datasheet dimensions (sources below) and has been
+collision-checked in OpenSCAD, but **it hasn't been printed yet**. These are the
+numbers most likely to differ on your parts. Check them with calipers:
+
+| Parameter | Default | What it is |
+|---|---|---|
+| `disp_w` × `disp_h` | 108.00 × 60.88 | Display PCB outline |
+| `disp_stack` | 4.2 | Glass + touch panel thickness, from the PCB front face to the front of the glass |
+| `aa_left` | 9.36 | Left edge of the lit picture area to the left PCB edge (the edge **away** from the J2 header) |
+| `btn_h` | 2.5 | BOOT key height above the ESP32 PCB |
+| `wire_space` | 24.5 | Room for the dupont housings + wire bend. Shorter or soldered wiring → set lower for a thinner case |
+
+The **fit test** answers the first three: the display should drop into the
+pocket with a little play, and with the screen on, the window edges should
+sit just outside the picture on all four sides.
+
+## Changing the model
+
+1. Install [OpenSCAD](https://openscad.org/) (free).
+2. Open `clawdmeter_devkitc_st7796.scad`, then **Window → Customizer**.
+3. Change values, press **F6** (render), then **F7** (export STL). Set `part` to
+   `shell`, `lid` or `fit_test` to choose what gets exported; `assembly` and
+   `exploded` are previews with stand-in boards.
+
+Command line:
+
+```bash
+openscad -o shell.stl -D 'part="shell"' -D 'tilt=20' clawdmeter_devkitc_st7796.scad
+```
+
+Other useful knobs: `tilt` (0 = upright box, no chin), `boot_style`
+(`flex` / `hole` / `none`), `lid_text`, `nub_gap`.
+
+## Assembly
+
+1. **Display:** lay the shell face-down. Drop the display in glass-first, with
+   the J2 header on the side **away** from the USB slot.
+2. **ESP32:** put double-sided tape on the two small pads in the middle of the
+   lid. Press the board in **component side down** (the WROOM module sits on
+   the pads), between the two rails, with the USB-C end at the lid edge that
+   lines up with the slot. The antenna end touches the end stop.
+3. **Wiring:** same pin map as now (see `firmware/src/boards/devkitc_st7796/board.h`).
+   10 cm dupont wires are much easier to fit than 20 cm ones.
+4. Stick 1 mm foam tape on each of the 4 pusher tips. They hold the display
+   against the bezel.
+5. Close the lid over the shell (USB end to the slot side) and fit the 4 screws.
+6. Plug in. The port labelled **UART** is the CH343 serial port (flashing,
+   serial monitor); **USB** is the S3's native USB. Either one powers it.
+7. Press the tab marked **BOOT** on the back: the screen should turn off, and
+   pressing again turns it back on.
+
+**If the screen stays dark after closing the lid**, the BOOT nub is holding
+BOOT down at power-up, which puts the ESP32 into its bootloader. Raise
+`nub_gap` (or file the nub down a little) and reprint the lid.
+
+## Sources
+
+- **ESP32 board:** vcc-gnd's metric dimension drawing in
+  [vcc-gnd/YD-ESP32-S3](https://github.com/vcc-gnd/YD-ESP32-S3): PCB 57.15 × 27.94 mm,
+  63.39 mm including the antenna overhang, rows 25.40 mm apart. BOOT/RST
+  positions and the USB-C spacing were measured off the same drawing.
+- **Display:** LCDwiki MSP4030/MSP4031 specification: PCB 108.00 × 60.88 mm,
+  4 × Ø3.2 mounting holes, active area 83.52 × 55.68 mm. The pushers assume the
+  holes sit 3.0 mm in from each edge; they press a ring around each hole.
