@@ -17,8 +17,9 @@
 // parts, for a multi-colour printer). The SVGs load relative to this file, so
 // `include` it only from this folder.
 //
-// Hardware: 4x M3x10 screws (self-tapping or machine, into printed pilots),
-// 1 mm foam tape for the pusher tips, double-sided tape under the ESP32.
+// The lid snaps on with four clips (no screws); `lid_fix` adds M3 screw holes
+// if you want them. Hardware: 1 mm foam tape for the pusher tips,
+// double-sided tape under the ESP32.
 //
 // Frame: seen from the front, x = right, y = up, z = toward the viewer.
 // The front face is z = 0 and the case extends back into -z; "depth" (d)
@@ -79,6 +80,14 @@ usb_slot_w  = 24.5;   // covers both USB-C ports
 usb_slot_h  = 9.5;
 button_style = "flex"; // [flex, hole, none] how BOOT and RST are reached through the lid
 side_labels = true;   // engrave UART / USB next to the port slot
+
+/* [Lid fixing] */
+lid_fix     = "snap"; // [snap, screws, both] snap = four press-on clips, no screws
+snap_w      = 10;     // clip width
+snap_len    = 14;     // clip arm length; longer = softer
+snap_t      = 1.5;    // clip arm thickness
+snap_hook   = 0.9;    // how far the hook sticks out
+snap_gap    = 0.2;    // arm to wall
 
 /* [Back-cover art] */
 lid_art     = "avocado"; // [avocado, text, none]
@@ -221,6 +230,10 @@ module shell() difference() {
     }
     for (p = boss_pts) tube(p[0], p[1], D - 12, D + 1, pilot_d);
     usb_slot();
+    if (lid_fix != "screws") {
+        for (x = snap_xs) { snap_recess(x); translate([0, H, 0]) mirror([0, 1, 0]) snap_recess(x); }
+        pry_notch();
+    }
     if (side_labels) {
         u0 = -(d_usb - usb_slot_h / 2) + 1.5;
         side_label("UART", ey + usbc_pitch / 2, u0);   // CH343 serial port (toward the top)
@@ -309,14 +322,47 @@ module key_nub(k) {
     }
 }
 
+// ---- snap clips
+// Two clips on each long wall. Each is an arm hanging off the lid just inside
+// the wall, with a hook that clicks into a recess in the wall. The hook's back
+// face is sloped, so the lid stays put against the foam but pries off with a
+// coin at the notch on the right side.
+snap_xs   = [W * 0.3 - snap_w / 2, W * 0.7 - snap_w / 2];
+snap_lead = 2.5;  snap_flat = 0.4;  snap_ret = 1.2;   // hook profile along the arm
+d_snap    = D - snap_len;                              // arm tip depth
+
+// Hook cross-section: u = outward from the arm face, v = from the arm tip toward the lid.
+module snap_hook_2d() polygon([[0, 0], [snap_hook, snap_lead], [snap_hook, snap_lead + snap_flat],
+                               [0, snap_lead + snap_flat + snap_ret]]);
+
+// Clip on the bottom wall (the top one is its mirror image).
+module snap_arm(x0) {
+    translate([x0, wall + snap_gap, 0]) slab(d_snap, D + eps) square([snap_w, snap_t]);
+    multmatrix([[0, 0, 1, x0], [-1, 0, 0, wall + snap_gap], [0, -1, 0, -d_snap], [0, 0, 0, 1]])
+        linear_extrude(snap_w) snap_hook_2d();
+}
+
+// Matching recess in the bottom wall. Its back edge sits where the hook's
+// sloped face crosses the wall, so the seated lid has no play.
+module snap_recess(x0) {
+    v_top = snap_lead + snap_flat + snap_ret * (1 - snap_gap / snap_hook) + 0.1;
+    translate([x0 - 0.3, wall - (snap_hook - snap_gap) - 0.3, -(d_snap + v_top)])
+        cube([snap_w + 0.6, snap_hook - snap_gap + 0.3 + eps, v_top + 0.3]);
+}
+
+// Notch in the rim on the right side: a coin goes in here to pry the lid off.
+module pry_notch() translate([W - 1.0, H / 2 - 6, -(D + 1)]) cube([2, 12, 2.2]);
+
 module lid() {
     difference() {
         union() {
             lid_body();
             pushers();
             esp_cradle();
+            if (lid_fix != "screws")
+                for (x = snap_xs) { snap_arm(x); translate([0, H, 0]) mirror([0, 1, 0]) snap_arm(x); }
         }
-        for (p = boss_pts) tube(p[0], p[1], D - 1, DT + 1, screw_d);
+        if (lid_fix != "snap") for (p = boss_pts) tube(p[0], p[1], D - 1, DT + 1, screw_d);
         for (k = keys) {
             if (button_style == "flex") key_cut(k);
             if (button_style == "hole") tube(k[0], k[1], D - 1, DT + 1, 4);

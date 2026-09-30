@@ -18,8 +18,8 @@ wedge adds under the screen).
 | File | What | PLA @ 0.2 mm, 15 % infill |
 |---|---|---|
 | `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~21 g |
-| `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~69 g |
-| `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT + RST flex keys, engraved avocado | ~29 g |
+| `stl/shell.stl` | Front bezel, walls, tilt wedge, clip recesses | ~69 g |
+| `stl/lid.stl` | Back cover with 4 snap clips, the ESP32 cradle, 4 display pushers, BOOT + RST flex keys, engraved avocado | ~30 g |
 | `stl/multicolor/` | Same back cover with a full-colour avocado, for a multi-colour printer (see [Back-cover art](#back-cover-art)) | ~30 g |
 | `stl/stand_25.stl` / `stand_30.stl` / `stand_35.stl` | Optional stand that reclines the screen to 25°, 30° or 35° (see [Stand](#stand-optional)) | ~20–23 g |
 
@@ -31,7 +31,6 @@ Use at least 3 perimeters so the 2.4 mm walls come out solid.
 
 Also needed:
 
-- 4 × M3 × 8–10 mm screws (self-tapping, or ordinary machine screws; they cut their own thread in the 2.6 mm pilots)
 - 1 mm double-sided foam tape (for the 4 pusher tips)
 - double-sided tape (under the ESP32)
 
@@ -81,7 +80,9 @@ openscad -o shell.stl -D 'part="shell"' -D 'tilt=20' clawdmeter_devkitc_st7796.s
 ```
 
 Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
-`button_style` (`flex` / `hole` / `none`), `lid_art` / `art_style`, `nub_gap`.
+`button_style` (`flex` / `hole` / `none`), `lid_art` / `art_style`, `nub_gap`,
+`lid_fix` (`snap` clips by default; `screws` or `both` for 4 × M3 screws into the
+corner bosses instead of or as well as the clips).
 
 ## Assembly
 
@@ -99,7 +100,9 @@ Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
    against the bezel. With the lid on, the display shouldn't rattle and the
    lid should close flat. If it rattles, add a second layer of foam; if the
    lid won't close flat, the foam is too thick.
-5. Close the lid over the shell (USB end to the slot side) and fit the 4 screws.
+5. Put the lid on the shell, USB end to the slot side, and press it straight
+   down until the four clips click. No screws. To open it again, put a coin
+   in the small notch in the rim on the right side and twist.
 6. Plug in. The port labelled **UART** is the CH343 serial port (flashing,
    serial monitor); **USB** is the S3's native USB. Either one powers it.
 7. Test the two keys on the back. Press on the dot, not near the hinge.
