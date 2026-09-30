@@ -38,7 +38,9 @@ disp_hole_in = 3.0;   // mounting-hole centres from PCB edges (3.2 mm holes)
 aa_w        = 83.52;  // active area
 aa_h        = 55.68;
 aa_left     = 9.36;   // measure: active area left edge from PCB left edge (the edge away from header J2)
-win_margin  = 1.0;    // window is this much larger than the active area on each side
+win_margin  = 1.0;    // window is this much larger than the active area, top and bottom
+win_margin_x = 1.5;   // ...and at the left/right ends, where aa_left is least certain
+                      // (a ruler photo of a real MSP4031 put it at ~9-10 mm)
 disp_back   = 2.5;    // parts on the back of the display PCB (SD slot etc.)
 
 /* [MCU: YD-ESP32-S3 (vcc-gnd dimension drawing)] */
@@ -177,9 +179,9 @@ module outer_body() hull() {
 }
 
 module window() {
-    wx0 = px0 + aa_left - win_margin;
+    wx0 = px0 + aa_left - win_margin_x;
     wy0 = py0 + (disp_h - aa_h) / 2 - win_margin;
-    wx1 = wx0 + aa_w + 2 * win_margin;
+    wx1 = wx0 + aa_w + 2 * win_margin_x;
     wy1 = wy0 + aa_h + 2 * win_margin;
     ch = min(1.2, bezel_t - 0.6);     // 45° lead-in so fingers reach the screen edge
     slab(-1, bezel_t + 1) rrect(wx0, wy0, wx1, wy1, 1);

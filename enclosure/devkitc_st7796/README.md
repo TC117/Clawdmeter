@@ -53,6 +53,14 @@ The **fit test** answers the first three: the display should drop into the
 pocket with a little play, and with the screen on, the window edges should
 sit just outside the picture on all four sides.
 
+A ruler-app photo of a real MSP4031 agreed with these to about 1 mm: PCB
+≈ 108 × 61 mm, holes ≈ 3 mm in from the edges, picture ≈ 9–10 mm from the
+non-J2 end. The window is 1.5 mm larger than the picture at the left and
+right ends (`win_margin_x`), so that much error still shows the whole screen.
+`disp_stack` and `btn_h` are too small for a photo; they need calipers. If you
+don't have calipers, the foam on the pushers and the key nub gap absorb about
+±0.5 mm.
+
 ## Changing the model
 
 1. Install [OpenSCAD](https://openscad.org/) (free).
