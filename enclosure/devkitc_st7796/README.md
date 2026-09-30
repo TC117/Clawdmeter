@@ -19,12 +19,13 @@ wedge adds under the screen).
 |---|---|---|
 | `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~20 g |
 | `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~68 g |
-| `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT + RST flex keys | ~29 g |
+| `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT + RST flex keys, engraved avocado | ~29 g |
+| `stl/multicolor/` | Same back cover with a full-colour avocado, for a multi-colour printer (see [Back-cover art](#back-cover-art)) | ~30 g |
 | `stl/stand_25.stl` / `stand_30.stl` / `stand_35.stl` | Optional stand that reclines the screen to 25°, 30° or 35° (see [Stand](#stand-optional)) | ~20–22 g |
 
 The STLs are already in print orientation (shell and fit test face-down, lid
 outer face down, stand upright). **No supports.** PrusaSlicer flags the lid for "long
-bridging"; that's the engraved lettering and key dots on its bottom face, and
+bridging"; that's the engraved avocado and key dots on its bottom face, and
 it prints fine.
 Use at least 3 perimeters so the 2.4 mm walls come out solid.
 
@@ -67,7 +68,7 @@ openscad -o shell.stl -D 'part="shell"' -D 'tilt=20' clawdmeter_devkitc_st7796.s
 ```
 
 Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
-`button_style` (`flex` / `hole` / `none`), `lid_text`, `nub_gap`.
+`button_style` (`flex` / `hole` / `none`), `lid_art` / `art_style`, `nub_gap`.
 
 ## Assembly
 
@@ -101,6 +102,38 @@ RST held keeps it in reset. Raise `nub_gap` (or file that nub down a little)
 and reprint the lid. **If a key clicks nothing**, the board has probably slid
 away from the end stop, or your buttons are shorter than `btn_h`.
 
+## Back-cover art
+
+The back cover carries the avocado from Microsoft's
+[Fluent Emoji](https://github.com/microsoft/fluentui-emoji) set (flat style,
+MIT licence; see `art/`). There are two versions:
+
+| Engraved: `stl/lid.stl` | Colour inlay: `stl/multicolor/` |
+|---|---|
+| ![engraved](images/back_engraved.png) | ![multicolour](images/back_multicolor.png) |
+
+- **Engraved** (default, any printer). The outer face prints on the bed, so a
+  large sunk area would sag. Only the edges between the emoji's colour areas
+  are engraved, as 0.8 mm grooves, and only the pit is sunk whole. For colour
+  on a single-colour printer, fill the grooves and pit with acrylic paint.
+- **Colour inlay** (multi-colour printer, e.g. an AMS). `multicolor/lid.stl`
+  has a 0.6 mm pocket shaped like the avocado. The four `inlay_*.stl` pieces
+  (back rim, skin, flesh, pit) fill it exactly. Load all five files together
+  as **one object with multiple parts** (Bambu Studio / OrcaSlicer / PrusaSlicer
+  ask when you load them at once). Keep their positions, and give each inlay
+  its own filament:
+
+  | Part | Colour |
+  |---|---|
+  | `inlay_back.stl` | dark green `#44911B` |
+  | `inlay_skin.stl` | green `#008463` |
+  | `inlay_flesh.stl` | lime `#C3EF3C` |
+  | `inlay_pit.stl` | brown `#6D4534` |
+
+`lid_art = "text"` brings back the engraved "Clawdmeter" (`lid_text`), and
+`"none"` leaves the back plain. `art_size`, `art_x` and `art_y` move or resize
+the avocado.
+
 ## Stand (optional)
 
 | On the stand | Stand |
@@ -127,6 +160,11 @@ angles. With the display and ESP32 inside, the centre of mass sits about
 40 mm inside the footprint at both front and back.
 
 ## Sources
+
+- **Avocado:** [microsoft/fluentui-emoji](https://github.com/microsoft/fluentui-emoji),
+  `assets/Avocado/Flat/avocado_flat.svg`, MIT licence (`art/LICENSE-fluentui-emoji`).
+  `art/avocado_[1-4]_*.svg` are its four colour layers, split out unchanged
+  so OpenSCAD can import each one.
 
 - **ESP32 board:** vcc-gnd's metric dimension drawing in
   [vcc-gnd/YD-ESP32-S3](https://github.com/vcc-gnd/YD-ESP32-S3): PCB 57.15 × 27.94 mm,

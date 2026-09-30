@@ -12,6 +12,10 @@
 // wedge's 15° (`stand_angle`, 20-40°). The case drops into a V-shaped seat,
 // rests its back on two uprights, and a small lip stops it sliding forward.
 // Print it upright.
+// Back-cover art: the Fluent Emoji avocado (art/, MIT, Microsoft), either
+// engraved as outlines (any printer) or as flush colour inlays (`inlay_*`
+// parts, for a multi-colour printer). The SVGs load relative to this file, so
+// `include` it only from this folder.
 //
 // Hardware: 4x M3x10 screws (self-tapping or machine, into printed pilots),
 // 1 mm foam tape for the pusher tips, double-sided tape under the ESP32.
@@ -23,7 +27,7 @@
 // Every dimension marked "measure" is from a datasheet, not from your parts.
 // Check them with calipers and re-export if they differ.
 
-part = "assembly"; // [assembly, exploded, on_stand, shell, lid, fit_test, stand]
+part = "assembly"; // [assembly, exploded, on_stand, shell, lid, fit_test, stand, inlay_back, inlay_skin, inlay_flesh, inlay_pit]
 
 /* [Display: MSP4031 (LCDwiki 4.0in capacitive, ST7796S)] */
 disp_w      = 108.00; // PCB long side (x). Datasheet.
@@ -71,8 +75,17 @@ pusher_gap  = 0.8;    // filled by 1 mm foam tape on each pusher tip
 usb_slot_w  = 24.5;   // covers both USB-C ports
 usb_slot_h  = 9.5;
 button_style = "flex"; // [flex, hole, none] how BOOT and RST are reached through the lid
-lid_text    = "Clawdmeter";
 side_labels = true;   // engrave UART / USB next to the port slot
+
+/* [Back-cover art] */
+lid_art     = "avocado"; // [avocado, text, none]
+art_style   = "engrave"; // [engrave, inlay] engrave = outline grooves, any printer; inlay = flush colour pockets + inlay_* parts
+art_size    = 56;     // mm for the emoji's 32-unit box; the avocado itself comes out ~49 mm
+art_x       = 80;     // art centre (case x; seen from behind this is left of centre, clear of the keys)
+art_y       = 37;
+art_depth   = 0.6;    // groove / inlay depth
+art_groove  = 0.8;    // outline groove width
+lid_text    = "Clawdmeter";  // used when lid_art = "text"
 
 /* [Stand] */
 stand_angle  = 30;    // [20:1:40] screen recline on the stand (the wedge alone gives `tilt`)
@@ -222,6 +235,35 @@ module lid_body() hull() {
 module lid_label(txt, x, y, size) translate([x, y, 0]) slab(DT - 0.6, DT + 1) mirror([1, 0, 0])
     text(txt, size = size, font = "Liberation Sans:style=Bold", halign = "center", valign = "center");
 
+// ---- back-cover art
+// Fluent Emoji "Avocado" (flat), split into its four colour layers in paint
+// order; each later layer covers the ones before it.
+art_layers = ["art/avocado_1_back.svg", "art/avocado_2_skin.svg",
+              "art/avocado_3_flesh.svg", "art/avocado_4_pit.svg"];
+art_colors = ["#44911B", "#008463", "#C3EF3C", "#6D4534"];
+n_art = len(art_layers);
+
+module art_layer(i) import(art_layers[i]);
+// The visible part of colour layer i.
+module art_region(i) difference() {
+    art_layer(i);
+    if (i < n_art - 1) for (j = [i + 1 : n_art - 1]) art_layer(j);
+}
+// Placed on the lid, mirrored so it reads correctly from behind.
+module art_place() translate([art_x, art_y]) mirror([1, 0, 0]) scale(art_size / 32) translate([-16, -16])
+    children();
+module band(w) difference() { offset(r = w / 2) children(); offset(r = -w / 2) children(); }
+
+// The outer face prints on the bed, so a big sunk area would have to be
+// bridged. Engrave the colour boundaries as narrow grooves instead, and sink
+// only the pit.
+module art_engrave() slab(DT - art_depth, DT + 1) {
+    for (i = [0 : n_art - 2]) band(art_groove) art_place() art_region(i);
+    art_place() art_region(n_art - 1);
+}
+module art_pocket() slab(DT - art_depth, DT + 1) art_place() for (i = [0 : n_art - 1]) art_layer(i);
+module art_inlay(i) slab(DT - art_depth, DT) art_place() art_region(i);
+
 module esp_cradle() {
     d_rail = d_comp - esp_pcb_t / 2;  // rails reach halfway up the PCB edge
     // side rails along the long edges (outside the header solder joints)
@@ -278,7 +320,8 @@ module lid() {
             if (button_style != "none")   // beside the key's press area, on its outer side
                 lid_label(k[4], k[0] - k[2] * (key_out + key_gap + 6), k[1] + k[3] * 8, 3);
         }
-        if (len(lid_text) > 0) lid_label(lid_text, W / 2, H * 0.24, 8);
+        if (lid_art == "avocado") { if (art_style == "inlay") art_pocket(); else art_engrave(); }
+        if (lid_art == "text" && len(lid_text) > 0) lid_label(lid_text, W / 2, H * 0.24, 8);
     }
     if (button_style == "flex") for (k = keys) key_nub(k);
 }
@@ -317,6 +360,9 @@ module stand() {
         translate([stand_cheek_in, y, 0]) cube([W - 2 * stand_cheek_in, stand_bar_d, stand_bar_h]);
 }
 
+module art_preview() if (lid_art == "avocado" && art_style == "inlay")
+    for (i = [0 : n_art - 1]) color(art_colors[i]) art_inlay(i);
+
 // Case pose on the stand, in the stand's frame.
 module on_stand_pose() translate([0, -DT * cos(stand_angle), stand_seat + DT * sin(stand_angle)])
     rotate([90 - stand_angle, 0, 0]) children();
@@ -349,6 +395,10 @@ module esp_dummy() {
 // ---------------------------------------------------------------- output
 if (part == "shell")    rotate([180, 0, 0]) shell();
 if (part == "lid")      translate([0, 0, DT]) lid();
+// Colour inlays for art_style = "inlay": load them with the lid as one
+// multi-part object and give each its own filament.
+for (i = [0 : n_art - 1])
+    if (part == ["inlay_back", "inlay_skin", "inlay_flesh", "inlay_pit"][i]) translate([0, 0, DT]) art_inlay(i);
 if (part == "fit_test") rotate([180, 0, 0]) intersection() {
     shell();
     translate([-1, 0, -(d_frame + 2)]) cube([W + 2, H + 1, d_frame + 2 + eps]);   // chin left off
@@ -357,13 +407,13 @@ if (part == "fit_test") rotate([180, 0, 0]) intersection() {
 if (part == "stand") stand();
 if (part == "on_stand") {
     color("#d8d2c4") stand();
-    on_stand_pose() { color("#e9e4da") shell(); display_dummy(); color("#d8d2c4") lid(); esp_dummy(); }
+    on_stand_pose() { color("#e9e4da") shell(); display_dummy(); color("#d8d2c4") lid(); art_preview(); esp_dummy(); }
 }
 if (part == "assembly" || part == "exploded") rotate([90 - tilt, 0, 0]) {
     gap = part == "exploded" ? 45 : 0;
     color("#e9e4da") shell();
     display_dummy();
-    translate([0, 0, -gap]) { color("#d8d2c4") lid(); esp_dummy(); }
+    translate([0, 0, -gap]) { color("#d8d2c4") lid(); art_preview(); esp_dummy(); }
 }
 
 echo(str("Case outer: ", W, " x ", H + chin, " (front face) x ", DT, " mm deep; chin ", chin, " mm"));
