@@ -131,9 +131,10 @@ MIT licence; see `art/`). There are two versions:
 | ![engraved](images/back_engraved.png) | ![multicolour](images/back_multicolor.png) |
 
 - **Engraved** (default, any printer). The outer face prints on the bed, so a
-  large sunk area would sag. Only the edges between the emoji's colour areas
-  are engraved, as 0.8 mm grooves, and only the pit is sunk whole. For colour
-  on a single-colour printer, fill the grooves and pit with acrylic paint.
+  large sunk area would sag. Only the avocado's outline is engraved, as one
+  1 mm groove, and only the pit is sunk whole. `art_lines = "full"` engraves
+  every colour boundary instead. For colour on a single-colour printer, fill
+  the groove and pit with acrylic paint.
 - **Colour inlay** (multi-colour printer, e.g. an AMS). `multicolor/lid.stl`
   has a 0.6 mm pocket shaped like the avocado. The four `inlay_*.stl` pieces
   (back rim, skin, flesh, pit) fill it exactly. Load all five files together

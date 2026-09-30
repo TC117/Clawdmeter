@@ -96,7 +96,8 @@ art_size    = 56;     // mm for the emoji's 32-unit box; the avocado itself come
 art_x       = 80;     // art centre (case x; seen from behind this is left of centre, clear of the keys)
 art_y       = 37;
 art_depth   = 0.6;    // groove / inlay depth
-art_groove  = 0.8;    // outline groove width
+art_groove  = 1.0;    // outline groove width
+art_lines   = "outline"; // [outline, full] engrave: one outline + pit, or every colour boundary
 lid_text    = "Clawdmeter";  // used when lid_art = "text"
 
 /* [Stand] */
@@ -271,10 +272,12 @@ module art_place() translate([art_x, art_y]) mirror([1, 0, 0]) scale(art_size / 
 module band(w) difference() { offset(r = w / 2) children(); offset(r = -w / 2) children(); }
 
 // The outer face prints on the bed, so a big sunk area would have to be
-// bridged. Engrave the colour boundaries as narrow grooves instead, and sink
-// only the pit.
+// bridged. Engrave narrow grooves instead (the avocado's outline, or every
+// colour boundary), and sink only the pit.
+art_outline_layer = 1;   // the green skin: the avocado's front silhouette
 module art_engrave() slab(DT - art_depth, DT + 1) {
-    for (i = [0 : n_art - 2]) band(art_groove) art_place() art_region(i);
+    if (art_lines == "full") for (i = [0 : n_art - 2]) band(art_groove) art_place() art_region(i);
+    else band(art_groove) art_place() art_layer(art_outline_layer);
     art_place() art_region(n_art - 1);
 }
 module art_pocket() slab(DT - art_depth, DT + 1) art_place() for (i = [0 : n_art - 1]) art_layer(i);
