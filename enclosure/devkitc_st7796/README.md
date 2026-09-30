@@ -10,18 +10,18 @@ on this port) and **RST** buttons.
 |---|---|---|
 | ![front](images/front.png) | ![back](images/back.png) | ![exploded](images/exploded.png) |
 
-Outer size: **122 × 87 × 45 mm** (W × H × D, including the 12 mm chin the tilt
+Outer size: **122 × 87 × 46 mm** (W × H × D, including the 12 mm chin the tilt
 wedge adds under the screen).
 
 ## Parts
 
 | File | What | PLA @ 0.2 mm, 15 % infill |
 |---|---|---|
-| `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~20 g |
-| `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~68 g |
+| `stl/fit_test.stl` | Bezel + display pocket only. **Print this first.** | ~21 g |
+| `stl/shell.stl` | Front bezel, walls, tilt wedge, screw bosses | ~69 g |
 | `stl/lid.stl` | Back cover with the ESP32 cradle, 4 display pushers, BOOT + RST flex keys, engraved avocado | ~29 g |
 | `stl/multicolor/` | Same back cover with a full-colour avocado, for a multi-colour printer (see [Back-cover art](#back-cover-art)) | ~30 g |
-| `stl/stand_25.stl` / `stand_30.stl` / `stand_35.stl` | Optional stand that reclines the screen to 25°, 30° or 35° (see [Stand](#stand-optional)) | ~20–22 g |
+| `stl/stand_25.stl` / `stand_30.stl` / `stand_35.stl` | Optional stand that reclines the screen to 25°, 30° or 35° (see [Stand](#stand-optional)) | ~20–23 g |
 
 The STLs are already in print orientation (shell and fit test face-down, lid
 outer face down, stand upright). **No supports.** PrusaSlicer flags the lid for "long
@@ -44,7 +44,7 @@ numbers most likely to differ on your parts. Check them with calipers:
 | Parameter | Default | What it is |
 |---|---|---|
 | `disp_w` × `disp_h` | 108.00 × 60.88 | Display PCB outline |
-| `disp_stack` | 4.2 | Glass + touch panel thickness, from the PCB front face to the front of the glass |
+| `disp_stack` | 5.1 | Glass + touch panel thickness, from the PCB front face to the front of the glass |
 | `aa_left` | 9.36 | Left edge of the lit picture area to the left PCB edge (the edge **away** from the J2 header) |
 | `btn_h` | 2.5 | BOOT / RST button height above the ESP32 PCB |
 | `wire_space` | 24.5 | Room for the dupont housings + wire bend. Shorter or soldered wiring → set lower for a thinner case |
@@ -57,9 +57,13 @@ A ruler-app photo of a real MSP4031 agreed with these to about 1 mm: PCB
 ≈ 108 × 61 mm, holes ≈ 3 mm in from the edges, picture ≈ 9–10 mm from the
 non-J2 end. The window is 1.5 mm larger than the picture at the left and
 right ends (`win_margin_x`), so that much error still shows the whole screen.
-`disp_stack` and `btn_h` are too small for a photo; they need calipers. If you
-don't have calipers, the foam on the pushers and the key nub gap absorb about
-±0.5 mm.
+`disp_stack` came from an edge-on photo of the same module. Back of the PCB to
+the front of the glass measured ≈ 3.2× the 1.6 mm PCB, so ≈ 5.1 mm of glass
+and LCD, or ≈ 6.7 mm for the whole module (not counting the SD slot and header
+pins). To check it with a ruler app, stand the display on its edge and read
+that total: 6–7 mm means the default is right. `btn_h` needs calipers. If the
+thickness is off, the foam on the pusher tips makes up the difference (see
+Assembly step 4), and the key nubs have 0.6 mm of clearance.
 
 ## Changing the model
 
@@ -73,6 +77,7 @@ Command line:
 
 ```bash
 openscad -o shell.stl -D 'part="shell"' -D 'tilt=20' clawdmeter_devkitc_st7796.scad
+./build.sh    # re-export every file in stl/ after changing a default
 ```
 
 Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
@@ -91,7 +96,9 @@ Other useful knobs: `tilt` (0 = upright box, no chin), `stand_angle`,
 3. **Wiring:** same pin map as now (see `firmware/src/boards/devkitc_st7796/board.h`).
    10 cm dupont wires are much easier to fit than 20 cm ones.
 4. Stick 1 mm foam tape on each of the 4 pusher tips. They hold the display
-   against the bezel.
+   against the bezel. With the lid on, the display shouldn't rattle and the
+   lid should close flat. If it rattles, add a second layer of foam; if the
+   lid won't close flat, the foam is too thick.
 5. Close the lid over the shell (USB end to the slot side) and fit the 4 screws.
 6. Plug in. The port labelled **UART** is the CH343 serial port (flashing,
    serial monitor); **USB** is the S3's native USB. Either one powers it.

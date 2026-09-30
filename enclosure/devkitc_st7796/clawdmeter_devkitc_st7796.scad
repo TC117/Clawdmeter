@@ -32,7 +32,8 @@ part = "assembly"; // [assembly, exploded, on_stand, shell, lid, fit_test, stand
 /* [Display: MSP4031 (LCDwiki 4.0in capacitive, ST7796S)] */
 disp_w      = 108.00; // PCB long side (x). Datasheet.
 disp_h      = 60.88;  // PCB short side (y). Datasheet.
-disp_stack  = 4.2;    // measure: LCD + touch glass above the PCB front face
+disp_stack  = 5.1;    // LCD + touch glass above the PCB front face. A side photo of a real
+                      // MSP4031 put it at ~3.2x the PCB thickness (1.6 mm): ~5.1 mm.
 disp_pcb_t  = 1.6;
 disp_hole_in = 3.0;   // mounting-hole centres from PCB edges (3.2 mm holes)
 aa_w        = 83.52;  // active area
